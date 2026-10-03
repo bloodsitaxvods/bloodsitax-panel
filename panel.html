@@ -111,6 +111,8 @@ a{color:var(--rosa)}
 .opcion select{background:var(--negro);border:1px solid var(--linea);border-radius:8px;padding:6px 10px;color:var(--blanco);font:inherit}
 .resultado{margin:10px 0 0;font-size:13px;color:var(--tenue)}
 .resultado strong{color:var(--rosa)}
+.disponible{margin:8px 0 0;font-size:13px;color:var(--tenue)}
+.disponible.falta{color:var(--blanco);background:rgba(255,0,127,.16);border:1px solid var(--neon);border-radius:10px;padding:8px 12px}
 
 /* Catálogo */
 .cat-barra{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
@@ -511,6 +513,7 @@ function tarjeta(id){
       : `<label class="opcion">Perks <select data-opc="perks">${[0,1,2,3,4].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>`;
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="tirar">Random</button><button class="btn" data-act="ocultar">Ocultar</button></div>
       <div class="opciones">${opciones}</div>
+      <p class="disponible" data-disponible></p>
       <p class="resultado" data-resultado></p>`;
   } else if(e.tipo === 'ruleta'){
     cuerpo = `<textarea class="lista" data-lista placeholder="Escribe un nombre por línea" aria-label="Lista de la ruleta"></textarea>
@@ -626,6 +629,25 @@ function pintarTarjeta(id){
         sel.value = grupos.includes(actual) ? actual : '';
       } else if(sel !== document.activeElement) sel.value = String(o[sel.dataset.opc] ?? '');
     });
+    const disp = t.querySelector('[data-disponible]'), j = JUEGOS[ELEMENTOS[id].juego];
+    let txt, falta = '';
+    if(Cat.error) falta = 'No se pudo leer el catálogo. Copia de nuevo las reglas desde Configuración (deben incluir "catalogo") y publícalas en Firebase.';
+    else if(j.perks){
+      const np = Cat.activos(j.personaje).length, nk = Cat.activos(j.perks).length, pide = o.perks ?? 4;
+      txt = `Disponibles: ${np} ${CATEGORIAS[j.personaje].nombre.toLowerCase()} y ${nk} perks activos.`;
+      if(!np) falta = `No hay ${CATEGORIAS[j.personaje].nombre.toLowerCase()} activos. Súbelos en Catálogo, pestaña ${CATEGORIAS[j.personaje].nombre}.`;
+      else if(nk < pide) falta = `Faltan perks: pides ${pide} y hay ${nk} activos en ${CATEGORIAS[j.perks].nombre}. Súbelos en Catálogo o baja la cantidad de perks.`;
+    } else {
+      const todos = Cat.activos(j.personaje);
+      const filtrados = o.grupo ? todos.filter(x => (Cat.indice[j.personaje][x].g || '') === o.grupo) : todos;
+      const pide = o.cantidad || 1;
+      txt = `Disponibles: ${filtrados.length} personajes activos${o.grupo ? ' en ' + o.grupo : ''}.`;
+      if(!todos.length) falta = 'No hay personajes de Marvel activos. Súbelos en Catálogo, pestaña Marvel.';
+      else if(filtrados.length < pide) falta = `Pides ${pide} personajes y solo hay ${filtrados.length} activos con ese filtro.`;
+    }
+    disp.textContent = falta || txt;
+    disp.classList.toggle('falta', !!falta);
+    t.querySelector('[data-act="tirar"]').disabled = !!falta;
     const cartas = lista(e.datos && e.datos.cartas);
     t.querySelector('[data-resultado]').innerHTML = cartas.length
       ? 'Resultado: <strong>' + cartas.map(k => esc(k.f && k.f.n)).join(', ') + '</strong>' : '';
@@ -893,7 +915,8 @@ const Cat = {
   conectar(db){
     this.db = db;
     for(const c in CATEGORIAS){
-      db.ref(`catalogo/${c}/indice`).on('value', s => { this.indice[c] = s.val() || {}; this.cambio(c); });
+      db.ref(`catalogo/${c}/indice`).on('value', s => { this.error = false; this.indice[c] = s.val() || {}; this.cambio(c); },
+        () => { this.error = true; this.cambio(c); });
     }
   },
   async iniciarLocal(){
