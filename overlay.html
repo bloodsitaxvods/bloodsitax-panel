@@ -77,6 +77,21 @@ body.guias .el{outline:3px dashed #FF007F}
 .nombre small{display:block;color:#FFC2DC;font-weight:700;font-size:.72em}
 .carta.lista .nombre{opacity:1;transform:none}
 
+/* Horóscopo */
+.horo{--k:1;position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:calc(var(--k)*18px);
+  padding:calc(var(--k)*34px) calc(var(--k)*38px);color:#FFFFFF;border-radius:34px;
+  background:rgba(13,13,13,.92);border:6px solid #FF007F;box-shadow:inset 0 0 0 3px #FFC2DC, 0 0 40px rgba(255,0,127,.45)}
+.horo-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;border-bottom:2px solid rgba(255,194,220,.35);padding-bottom:calc(var(--k)*14px)}
+.horo-signo{font-size:calc(var(--k)*62px);font-weight:800;color:#FFC2DC;line-height:1}
+.horo-fecha{font-size:calc(var(--k)*20px);color:rgba(255,255,255,.65);margin-top:6px}
+.horo-clave{flex:none;font-size:calc(var(--k)*20px);font-weight:800;background:#FF007F;border-radius:999px;padding:8px 20px}
+.horo-general{margin:0;font-size:calc(var(--k)*28px);font-weight:700;line-height:1.35}
+.horo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(var(--k)*18px)}
+.horo-grid h4{margin:0 0 6px;font-size:calc(var(--k)*17px);font-weight:800;color:#FFC2DC;text-transform:uppercase;letter-spacing:.06em}
+.horo-grid p{margin:0;font-size:calc(var(--k)*20px);line-height:1.4;color:rgba(255,255,255,.9)}
+.horo-suerte{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 26px;font-size:calc(var(--k)*19px);color:rgba(255,255,255,.85)}
+.horo-suerte b{color:#FFC2DC;margin-right:6px}
+
 @media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
 </style>
 </head>
@@ -308,6 +323,33 @@ function liberarTirada(c){
   });
 }
 
+/* ---------- Horóscopo ---------- */
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fechaBonita(f){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || '');
+  return m ? `${+m[3]} de ${MESES[+m[2] - 1]} de ${m[1]}` : (f || '');
+}
+function dibujarHoroscopo(c, e){
+  const d = e.datos || {}, h = d.h;
+  if(!h){ tarjetaPrueba(c, e); return; }
+  const sec = (t, x) => x ? `<section><h4>${t}</h4><p>${esc(x)}</p></section>` : '';
+  const suerte = [
+    h.numeros && lista(h.numeros).length ? `<span><b>Números</b>${esc(lista(h.numeros).join(', '))}</span>` : '',
+    h.color ? `<span><b>Color</b>${esc(h.color)}</span>` : '',
+    h.compat ? `<span><b>Compatible con</b>${esc(h.compat)}</span>` : ''
+  ].join('');
+  c.innerHTML = `<div class="horo">
+    <div class="horo-cab"><div><div class="horo-signo">${esc(d.signo)}</div>${d.fecha ? `<div class="horo-fecha">${esc(fechaBonita(d.fecha))}</div>` : ''}</div>
+      ${h.clave ? `<div class="horo-clave">${esc(h.clave)}</div>` : ''}</div>
+    ${h.general ? `<p class="horo-general">${esc(h.general)}</p>` : ''}
+    <div class="horo-grid">${sec('Amor', h.amor)}${sec('Dinero y trabajo', h.dinero)}${sec('Salud', h.salud)}</div>
+    ${suerte ? `<div class="horo-suerte">${suerte}</div>` : ''}
+  </div>`;
+  // Si el texto del día es más largo, reduce la letra hasta que quepa
+  const el = c.firstChild;
+  for(let k = 1; el.scrollHeight > el.clientHeight + 1 && k > .6; ){ k -= .05; el.style.setProperty('--k', k.toFixed(2)); }
+}
+
 /* ---------- Tipos de elemento ---------- */
 // Cada tipo sabe crearse y actualizarse. Para un módulo nuevo solo se agrega aquí.
 const TIPOS = {
@@ -323,6 +365,7 @@ const TIPOS = {
     liberar(c){ c.firstChild.removeAttribute('src'); }
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
+  horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada }
 };
 
