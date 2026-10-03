@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay BLOODSITAX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+body.verde{background:#00FF00}
+#escena{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;
+  font-family:"M PLUS Rounded 1c", system-ui, "Segoe UI", sans-serif}
+
+/* La capa exterior maneja posición, tamaño y capa; .cuerpo maneja la entrada y salida */
+.el{position:absolute;left:0;top:0;transform-origin:50% 50%;visibility:visible;
+  transition:transform .14s linear, opacity .25s ease, visibility 0s}
+/* Al terminar de desvanecerse, el elemento sale del dibujado: oculto no cuesta nada */
+.el:not(.on){visibility:hidden;transition:transform .14s linear, opacity .25s ease, visibility 0s linear .5s}
+.cuerpo{width:100%;height:100%;opacity:0;transform:scale(.86);
+  transition:opacity .3s ease, transform .45s cubic-bezier(.2,1.4,.4,1)}
+.el.on .cuerpo{opacity:1;transform:scale(1)}
+body.guias .el{outline:3px dashed #FF007F}
+
+/* Tarjeta temporal mientras se implementa cada módulo */
+.prueba{position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--u)*14px);
+  padding:calc(var(--u)*30px);text-align:center;color:#FFFFFF;
+  background:rgba(13,13,13,.9);border:calc(var(--u)*6px) solid #FF007F;border-radius:calc(var(--u)*34px);
+  box-shadow:inset 0 0 0 calc(var(--u)*3px) #FFC2DC, 0 0 40px rgba(255,0,127,.45)}
+.prueba-titulo{font-size:calc(var(--u)*68px);font-weight:800;color:#FFC2DC;line-height:1.1}
+.prueba-sub{font-size:calc(var(--u)*46px);font-weight:700;line-height:1.1}
+.prueba-nota{font-size:calc(var(--u)*22px);color:rgba(255,255,255,.6)}
+.petalo{position:absolute;background:#FFC2DC;border-radius:0 70% 0 70%;opacity:.85;
+  width:calc(var(--u)*38px);height:calc(var(--u)*38px)}
+.p1{top:calc(var(--u)*24px);left:calc(var(--u)*28px);transform:rotate(-20deg)}
+.p2{top:calc(var(--u)*48px);left:calc(var(--u)*78px);transform:rotate(35deg) scale(.55)}
+.p3{bottom:calc(var(--u)*24px);right:calc(var(--u)*28px);transform:rotate(160deg)}
+.p4{bottom:calc(var(--u)*48px);right:calc(var(--u)*78px);transform:rotate(200deg) scale(.55)}
+
+/* Imagen */
+.imagen{display:block;width:100%;height:100%;object-fit:contain}
+
+/* Ruleta */
+.ruleta{position:relative;width:100%;height:100%}
+.rueda{position:absolute;inset:0;width:100%;height:100%;will-change:transform;filter:drop-shadow(0 0 18px rgba(255,0,127,.45))}
+.puntero{position:absolute;left:50%;top:-3%;width:9%;transform:translateX(-50%);filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));z-index:2}
+.eje{position:absolute;left:50%;top:50%;width:12%;height:12%;transform:translate(-50%,-50%);border-radius:50%;box-sizing:border-box;
+  background:#0D0D0D;border:calc(var(--u)*7px) solid #FFC2DC;box-shadow:0 0 0 calc(var(--u)*5px) #FF007F}
+.ganador{position:absolute;left:50%;top:50%;width:76%;box-sizing:border-box;z-index:3;
+  display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*10px);text-align:center;
+  padding:calc(var(--u)*30px) calc(var(--u)*30px);border-radius:calc(var(--u)*32px);
+  background:rgba(13,13,13,.95);border:calc(var(--u)*7px) solid #FF007F;
+  box-shadow:inset 0 0 0 calc(var(--u)*3px) #FFC2DC, 0 0 60px rgba(255,0,127,.65);
+  opacity:0;transform:translate(-50%,-50%) scale(.55);transition:opacity .3s ease, transform .55s cubic-bezier(.2,1.5,.4,1)}
+.ganador.ver{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.ganador span{color:#FFC2DC;font-weight:700;font-size:calc(var(--u)*36px)}
+.ganador strong{color:#FFFFFF;font-weight:800;font-size:calc(var(--u)*76px);line-height:1.1;overflow-wrap:anywhere}
+
+/* Randoms con cartas (killer, survi, Marvel) */
+.tirada{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+.tirada-vacia{color:#FFC2DC;font-weight:800;font-size:calc(var(--u)*48px);text-shadow:0 2px 8px #000}
+.carta{display:flex;flex-direction:column;align-items:center;flex:none}
+.marco{position:relative;width:100%;overflow:hidden;box-sizing:border-box;border-radius:18px;background:#0D0D0D;
+  border:4px solid #FFC2DC;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.tira{will-change:transform}
+.cuadro{display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:8%}
+.cuadro img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.cuadro span{display:none;color:#FFFFFF;font-weight:800;text-align:center;line-height:1.15;font-size:16px}
+.cuadro.sin-img span{display:block}
+.carta.lista .marco{border-color:#FF007F;box-shadow:inset 0 0 0 3px #FFC2DC, 0 0 30px rgba(255,0,127,.75);animation:golpe .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes golpe{0%{transform:scale(1)}40%{transform:scale(1.07)}100%{transform:scale(1)}}
+.nombre{margin-top:12px;max-width:100%;box-sizing:border-box;padding:6px 14px;border-radius:999px;text-align:center;
+  background:rgba(13,13,13,.9);border:2px solid #FF007F;color:#FFFFFF;font-weight:800;line-height:1.15;overflow-wrap:anywhere;
+  opacity:0;transform:translateY(10px);transition:opacity .35s ease, transform .35s ease}
+.nombre small{display:block;color:#FFC2DC;font-weight:700;font-size:.72em}
+.carta.lista .nombre{opacity:1;transform:none}
+
+@media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
+</style>
+</head>
+<body>
+<div id="escena"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/*CONFIG-BEGIN*/
+// Pega aquí la misma configuración de Firebase que en panel.html.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBTo0aaqsTK7ucs7yaq5ONpd0OOSXqAvy0",
+  authDomain: "bloodsitax-panel.firebaseapp.com",
+  databaseURL: "https://bloodsitax-panel-default-rtdb.firebaseio.com",
+  projectId: "bloodsitax-panel",
+  storageBucket: "bloodsitax-panel.firebasestorage.app",
+  messagingSenderId: "1066841366963",
+  appId: "1:1066841366963:web:ee0559a51871aa191e6bc6"
+};
+// Sala fija: debe ser exactamente igual en panel.html y overlay.html.
+const SALA_FIJA = "bloodsitax";
+const ESTADO_INICIAL = null;
+/*CONFIG-END*/
+
+const params = new URLSearchParams(location.search);
+const sala = params.get('sala') || SALA_FIJA;
+if(params.get('fondo') === 'verde') document.body.classList.add('verde');
+if(params.get('guias') === '1') document.body.classList.add('guias');
+
+const escena = document.getElementById('escena');
+function ajustar(){
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  escena.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px,${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+}
+addEventListener('resize', ajustar);
+ajustar();
+
+let elementos = ESTADO_INICIAL || {}, desfase = 0, fuentesListas = 0, db = null;
+const LIBERAR_MS = 60000; // tras 1 minuto oculto, se libera la memoria de sus imágenes
+const ahora = () => Date.now() + desfase;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- Tarjeta de prueba ---------- */
+function tarjetaPrueba(c, e){
+  const sub = e.datos ? (e.datos.signo || e.datos.accion || '') : '';
+  c.innerHTML = `<div class="prueba">
+    <span class="petalo p1"></span><span class="petalo p2"></span><span class="petalo p3"></span><span class="petalo p4"></span>
+    <div class="prueba-titulo">${esc(e.nombre)}</div>
+    ${sub && sub !== e.nombre ? `<div class="prueba-sub">${esc(sub)}</div>` : ''}
+    <div class="prueba-nota">Vista de prueba</div>
+  </div>`;
+}
+
+/* ---------- Ruleta ---------- */
+const COLORES = [['#FF007F','#FFFFFF'], ['#FFC2DC','#0D0D0D'], ['#0D0D0D','#FFFFFF']];
+function recortar(ctx, t, max){
+  if(ctx.measureText(t).width <= max) return t;
+  while(t.length > 1 && ctx.measureText(t + '…').width > max) t = t.slice(0, -1);
+  return t + '…';
+}
+function dibujarRueda(cv, ops, tam){
+  const S = Math.round(tam * 1.5);
+  cv.width = S; cv.height = S;
+  const x = cv.getContext('2d'), c = S / 2, R = c * .94, n = ops.length;
+  x.clearRect(0, 0, S, S);
+  if(!n){
+    x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.fillStyle = '#0D0D0D'; x.fill();
+    x.font = `800 ${S * .05}px "M PLUS Rounded 1c", system-ui, sans-serif`;
+    x.fillStyle = '#FFC2DC'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('Lista vacía', c, c + R * .45);
+  } else {
+    const seg = Math.PI * 2 / n;
+    const col = ops.map((_, i) => i % 3);
+    if(n > 1 && col[n - 1] === col[0]) col[n - 1] = col[n - 2] === 1 ? 2 : 1;
+    const fs = Math.max(S * .012, Math.min(R * .085, R * seg * .42));
+    for(let i = 0; i < n; i++){
+      const a = -Math.PI / 2 + i * seg;
+      x.beginPath(); x.moveTo(c, c); x.arc(c, c, R, a, a + seg); x.closePath();
+      x.fillStyle = COLORES[col[i]][0]; x.fill();
+      if(n > 1){ x.lineWidth = S * .003; x.strokeStyle = '#0D0D0D'; x.stroke(); }
+      x.save();
+      x.translate(c, c); x.rotate(a + seg / 2);
+      x.font = `800 ${fs}px "M PLUS Rounded 1c", system-ui, sans-serif`;
+      x.textAlign = 'right'; x.textBaseline = 'middle'; x.fillStyle = COLORES[col[i]][1];
+      x.fillText(recortar(x, String(ops[i]), R * .66), R * .9, 0);
+      x.restore();
+    }
+  }
+  x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.lineWidth = S * .02; x.strokeStyle = '#FF007F'; x.stroke();
+  x.beginPath(); x.arc(c, c, R + S * .016, 0, Math.PI * 2); x.lineWidth = S * .008; x.strokeStyle = '#FFC2DC'; x.stroke();
+}
+function crearRuleta(c){
+  c.innerHTML = `<div class="ruleta">
+    <canvas class="rueda"></canvas>
+    <svg class="puntero" viewBox="0 0 60 70" aria-hidden="true"><path d="M30 64 L7 12 Q30 2 53 12 Z" fill="#FF007F" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round"/></svg>
+    <div class="eje"></div>
+    <div class="ganador"><span>Ganador</span><strong></strong></div>
+  </div>`;
+  c._ruleta = { canvas:c.querySelector('canvas'), caja:c.querySelector('.ganador'), firma:'', clave:'', raf:0 };
+}
+function actualizarRuleta(c, e){
+  const r = c._ruleta, d = e.datos || {};
+  const ops = Array.isArray(d.opciones) ? d.opciones : Object.values(d.opciones || {});
+  const firma = ops.join('\u0001') + '|' + e.w + '|' + fuentesListas;
+  if(firma !== r.firma){ r.firma = firma; dibujarRueda(r.canvas, ops, e.w); }
+  const g = d.giro;
+  const clave = g ? `g:${g.inicio}:${g.hasta}` : `q:${d.angulo || 0}`;
+  if(clave === r.clave) return;
+  r.clave = clave;
+  cancelAnimationFrame(r.raf);
+  if(!g){
+    r.caja.classList.remove('ver');
+    r.canvas.style.transform = `rotate(${d.angulo || 0}deg)`;
+    return;
+  }
+  r.caja.querySelector('strong').textContent = g.nombre || '';
+  const paso = () => {
+    const p = Math.min(1, Math.max(0, (ahora() - g.inicio) / g.duracion));
+    const ang = g.desde + (g.hasta - g.desde) * (1 - Math.pow(1 - p, 4));
+    r.canvas.style.transform = `rotate(${ang}deg)`;
+    if(p < 1){ r.caja.classList.remove('ver'); r.raf = requestAnimationFrame(paso); }
+    else r.caja.classList.add('ver');
+  };
+  paso();
+}
+
+/* ---------- Imágenes bajo demanda ---------- */
+// Nada se descarga hasta que hace falta mostrarlo; lo descargado se guarda en una caché con límite.
+const cache = new Map(), MAX_CACHE = 220;
+function enCache(k, crear){
+  if(cache.has(k)){ const v = cache.get(k); cache.delete(k); cache.set(k, v); return v; }
+  const v = crear().catch(() => null);
+  cache.set(k, v);
+  if(cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
+  return v;
+}
+function idbGet(k){
+  return new Promise(ok => {
+    const r = indexedDB.open('bsx-local', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onerror = () => ok(null);
+    r.onsuccess = () => { const q = r.result.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); };
+  });
+}
+function srcRandom(imgId){
+  return enCache('r/' + imgId, () => db
+    ? db.ref(`overlay/${sala}/imagenes/${imgId}/src`).once('value').then(s => s.val())
+    : Promise.resolve(((JSON.parse(localStorage.getItem('bsx-imagenes-' + sala) || '{}'))[imgId] || {}).src || null));
+}
+function srcCatalogo(r){
+  if(r.u) return Promise.resolve(r.u);
+  return enCache(r.c + '/' + r.i, () => db
+    ? db.ref(`catalogo/${r.c}/img/${r.i}`).once('value').then(s => s.val())
+    : idbGet(`img:${r.c}:${r.i}`));
+}
+function precargar(src){
+  return new Promise(ok => { if(!src) return ok(); const i = new Image(); i.onload = i.onerror = () => ok(); i.src = src; });
+}
+const conLimite = (p, ms) => Promise.race([p, new Promise(ok => setTimeout(ok, ms))]);
+const lista = v => Array.isArray(v) ? v.filter(x => x != null) : (v ? Object.values(v) : []);
+
+/* ---------- Randoms con cartas ---------- */
+// Cada carta es una tira vertical de imágenes que se desliza y frena en el resultado.
+// Solo se anima una propiedad (transform), así que el costo es mínimo.
+function crearTirada(c){ c.innerHTML = '<div class="tirada"></div>'; c._tirada = { clave:null, token:0, timers:[] }; }
+function actualizarTirada(c, e){
+  const st = c._tirada, d = e.datos;
+  const clave = d && d.cartas ? d.t : 0;
+  if(clave === st.clave) return;
+  st.clave = clave;
+  const tok = ++st.token;
+  st.timers.forEach(clearTimeout); st.timers = [];
+  const cont = c.firstChild;
+  if(!clave){ cont.innerHTML = `<div class="tirada-vacia">${esc(e.nombre)}</div>`; return; }
+  armarTirada(cont, e, d, tok, st);
+}
+async function armarTirada(cont, e, d, tok, st){
+  const cartas = lista(d.cartas);
+  const GAP = 22, PAD = 28, GR = 1.6, PROP = 1.38;
+  const grandes = cartas.filter(k => k.g).length, chicas = cartas.length - grandes;
+  // Tamaño de carta que cabe a lo ancho y a lo alto del elemento
+  let u = (e.w - PAD * 2 - GAP * (cartas.length - 1)) / (grandes * GR + chicas);
+  u = Math.min(u, (e.h - PAD * 2) / ((grandes ? GR * PROP : 1) + .42), 190);
+  const fs = Math.max(14, Math.round(u * .14));
+  cont.style.gap = GAP + 'px';
+  cont.innerHTML = cartas.map(k => {
+    const W = k.g ? u * GR : u, H = k.g ? W * PROP : W;
+    const cuadros = [...lista(k.s), k.f];
+    return `<div class="carta" style="width:${W}px"><div class="marco" style="height:${H}px"><div class="tira">${
+      cuadros.map(f => `<div class="cuadro" style="height:${H}px"><img alt=""><span>${esc(f.n || '')}</span></div>`).join('')
+    }</div></div><div class="nombre" style="font-size:${fs}px">${esc(k.f.n)}${k.f.g ? `<small>${esc(k.f.g)}</small>` : ''}</div></div>`;
+  }).join('');
+
+  // Precarga: solo las imágenes de esta tirada (resultado + imágenes de paso)
+  const tareas = [];
+  cont.querySelectorAll('.carta').forEach((el, i) => {
+    const cuadros = [...lista(cartas[i].s), cartas[i].f];
+    el.querySelectorAll('.cuadro').forEach((q, j) => {
+      tareas.push(srcCatalogo(cuadros[j]).then(src => {
+        const img = q.firstChild;
+        if(src){ img.src = src; return precargar(src); }
+        img.remove(); q.classList.add('sin-img');
+      }));
+    });
+  });
+  await conLimite(Promise.all(tareas), 2500);
+  if(tok !== st.token) return;
+
+  const espera = Math.max(0, d.inicio - ahora());
+  cont.querySelectorAll('.carta').forEach((el, i) => {
+    const tira = el.querySelector('.tira'), n = tira.children.length, H = tira.firstChild.offsetHeight;
+    const dur = 1500 + i * 420;
+    const destino = `translateY(${-(n - 1) * H}px)`;
+    if(ahora() > d.inicio + dur){ tira.style.transform = destino; el.classList.add('lista'); return; }
+    tira.style.transform = 'translateY(0)';
+    st.timers.push(setTimeout(() => {
+      tira.style.transition = `transform ${dur}ms cubic-bezier(.12,.8,.2,1.02)`;
+      tira.style.transform = destino;
+      st.timers.push(setTimeout(() => el.classList.add('lista'), dur));
+    }, espera));
+  });
+}
+// Al liberar, se quitan las imágenes de paso y queda solo el resultado
+function liberarTirada(c){
+  c.querySelectorAll('.tira').forEach(t => {
+    while(t.children.length > 1) t.firstChild.remove();
+    t.style.transition = 'none'; t.style.transform = 'none';
+  });
+}
+
+/* ---------- Tipos de elemento ---------- */
+// Cada tipo sabe crearse y actualizarse. Para un módulo nuevo solo se agrega aquí.
+const TIPOS = {
+  prueba: { crear: tarjetaPrueba, actualizar(c, e, nuevo){ if(nuevo) tarjetaPrueba(c, e); } },
+  imagen: {
+    crear(c){ c.innerHTML = '<img class="imagen" alt="">'; },
+    actualizar(c, e){
+      const img = c.firstChild;
+      if(!e.visible || (c._img === e.imagen && img.getAttribute('src'))) return;
+      c._img = e.imagen;
+      srcRandom(e.imagen).then(src => { if(src && c._img === e.imagen) img.src = src; });
+    },
+    liberar(c){ c.firstChild.removeAttribute('src'); }
+  },
+  ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
+  tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada }
+};
+
+const nodos = {}, ultimoT = {};
+function detener(n){
+  const c = n.firstChild; if(!c) return;
+  if(c._ruleta) cancelAnimationFrame(c._ruleta.raf);
+  if(c._tirada){ c._tirada.token++; c._tirada.timers.forEach(clearTimeout); }
+}
+function aplicar(){
+  const todo = elementos || {};
+  for(const id in nodos) if(!todo[id]){ detener(nodos[id]); nodos[id].remove(); delete nodos[id]; }
+  for(const id in todo){
+    const e = todo[id];
+    if(!e || !e.w || !e.h) continue;
+    let n = nodos[id];
+    if(!n){
+      n = document.createElement('div'); n.className = 'el';
+      const cuerpo = document.createElement('div'); cuerpo.className = 'cuerpo';
+      n.append(cuerpo); escena.append(n); nodos[id] = n;
+    }
+    n.style.width = e.w + 'px';
+    n.style.height = e.h + 'px';
+    n.style.transform = `translate(${e.x - e.w / 2}px,${e.y - e.h / 2}px) rotate(${e.rot || 0}deg) scale(${e.escala ?? 1})`;
+    n.style.opacity = e.opacidad ?? 1;
+    n.style.zIndex = e.capa || 1;
+    n.style.setProperty('--u', Math.min(e.w, e.h * 1.6) / 1000);
+
+    const tipo = TIPOS[e.tipo] ? e.tipo : 'prueba', mod = TIPOS[tipo], cuerpo = n.firstChild;
+    const t = (e.datos && e.datos.t) || 0, nuevo = t !== ultimoT[id];
+    ultimoT[id] = t;
+    if(n._tipo !== tipo){ detener(n); cuerpo.innerHTML = ''; mod.crear(cuerpo, e); n._tipo = tipo; }
+    mod.actualizar(cuerpo, e, nuevo);
+
+    if(e.visible){
+      clearTimeout(n._liberar); n._liberar = 0;
+      if(nuevo && t && n.classList.contains('on')){ n.classList.remove('on'); void n.offsetWidth; }
+      n.classList.add('on');
+    } else {
+      n.classList.remove('on');
+      if(!n._liberar && mod.liberar) n._liberar = setTimeout(() => { n._liberar = 0; mod.liberar(cuerpo); }, LIBERAR_MS);
+    }
+  }
+}
+
+// Redibuja las ruletas cuando termina de cargar la tipografía
+if(document.fonts && document.fonts.load){
+  document.fonts.load('800 40px "M PLUS Rounded 1c"').then(() => { fuentesListas = 1; aplicar(); }).catch(() => {});
+}
+
+aplicar();
+
+if(FIREBASE_CONFIG.databaseURL && window.firebase){
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.database();
+  db.ref('.info/serverTimeOffset').on('value', s => { desfase = s.val() || 0; });
+  // Solo se escucha la posición y el estado; las imágenes se piden una por una cuando se van a mostrar
+  db.ref(`overlay/${sala}/elementos`).on('value', s => { elementos = s.val() || {}; aplicar(); }, err => console.error(err));
+} else {
+  // Modo local para pruebas en el mismo navegador que el panel
+  try{
+    elementos = JSON.parse(localStorage.getItem('bsx-estado-' + sala) || 'null') || elementos;
+  }catch{}
+  aplicar();
+  const canal = new BroadcastChannel('bsx-' + sala);
+  canal.onmessage = m => { elementos = m.data.elementos || {}; aplicar(); };
+}
+</script>
+</body>
+</html>

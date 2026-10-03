@@ -1,0 +1,1388 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel BLOODSITAX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --negro:#0D0D0D; --sup:#161012; --sup2:#21181C; --linea:#36262D;
+  --rosa:#FFC2DC; --neon:#FF007F; --blanco:#FFFFFF; --tenue:#B59CA7;
+  --radio:14px;
+  font-family:"M PLUS Rounded 1c", system-ui, "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--negro);color:var(--blanco);min-height:100vh;display:flex;flex-direction:column;font-size:15px;line-height:1.4}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--rosa);outline-offset:2px}
+a{color:var(--rosa)}
+
+/* Barra superior */
+.barra{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--negro);border-bottom:1px solid var(--linea)}
+.marca{display:flex;align-items:baseline;gap:12px}
+.logo{font-weight:800;font-size:22px;color:var(--rosa);letter-spacing:.01em}
+.marca span{color:var(--tenue);font-size:14px}
+.marca .prueba{color:var(--negro);background:var(--rosa);border-radius:999px;padding:2px 10px;font-weight:700;font-size:12px}
+.conexion{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tenue)}
+.punto{width:9px;height:9px;border-radius:50%;background:#5a4a50;flex:none}
+.punto.ok{background:var(--neon);box-shadow:0 0 10px var(--neon)}
+
+/* Botones */
+.btn{background:var(--sup2);border:1px solid var(--linea);border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer}
+.btn:hover{border-color:var(--rosa)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.principal{background:var(--neon);border-color:var(--neon);color:var(--blanco)}
+.btn.principal:hover:not(:disabled){box-shadow:0 0 14px rgba(255,0,127,.55)}
+.btn.grande{padding:12px 26px;font-size:17px}
+.btn.borde{background:transparent;border-color:var(--neon);color:var(--rosa)}
+.btn.quitar{color:var(--rosa)}
+
+/* Distribución */
+.layout{flex:1;display:grid;grid-template-columns:minmax(380px,1fr) minmax(420px,1.15fr);gap:24px;padding:22px}
+@media (max-width:1050px){.layout{grid-template-columns:1fr}}
+
+/* Pestañas */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.tab{background:transparent;border:1px solid var(--linea);border-radius:999px;padding:9px 18px;font-weight:700;cursor:pointer}
+.tab:hover{border-color:var(--rosa)}
+.tab[aria-selected="true"]{background:var(--rosa);border-color:var(--rosa);color:var(--negro)}
+.subtabs .tab{padding:6px 16px;font-size:14px}
+.subtabs .tab[aria-selected="true"]{background:transparent;color:var(--rosa);border-color:var(--neon)}
+
+/* Tarjetas de elementos */
+.tarjeta{background:var(--sup);border:1px solid var(--linea);border-radius:var(--radio);padding:16px 18px;margin-bottom:14px}
+.tarjeta.sel{border-color:var(--neon);box-shadow:0 0 0 1px var(--neon)}
+.tarjeta-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.tarjeta-cab h3{margin:0;font-size:18px;font-weight:800;overflow-wrap:anywhere}
+.cab-img{display:flex;align-items:center;gap:12px;min-width:0}
+.miniatura{width:56px;height:56px;object-fit:contain;border-radius:8px;flex:none;
+  background:conic-gradient(#120d0f 25%,#1a1316 0 50%,#120d0f 0 75%,#1a1316 0) 0 0/12px 12px}
+.pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid var(--linea);color:var(--tenue);white-space:nowrap}
+.tarjeta.on .pill{border-color:var(--neon);color:var(--blanco);background:rgba(255,0,127,.18)}
+.acciones{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.acciones + .acciones{margin-top:8px}
+.acciones.chicas .btn{padding:6px 12px;font-size:13px}
+.signos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.signo{padding:7px 4px;font-size:13px}
+.signo.activo{background:var(--neon);border-color:var(--neon)}
+
+/* Lista de la ruleta */
+.lista{width:100%;min-height:150px;resize:vertical;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.5}
+.lista-info{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0 12px;font-size:13px;color:var(--tenue)}
+.lista-info strong{color:var(--rosa)}
+
+.ajustes{margin-top:14px;border-top:1px solid var(--linea);padding-top:10px}
+.ajustes summary{cursor:pointer;color:var(--tenue);font-size:14px;font-weight:700}
+.ajustes-cuerpo{display:grid;grid-template-columns:auto 1fr;gap:16px;margin:12px 0}
+@media (max-width:520px){.ajustes-cuerpo{grid-template-columns:1fr}}
+.rejilla{display:grid;grid-template-columns:repeat(3,26px);grid-auto-rows:26px;gap:4px;align-content:start}
+.pos{background:var(--sup2);border:1px solid var(--linea);border-radius:6px;padding:0;cursor:pointer;display:grid;place-items:center}
+.pos i{width:6px;height:6px;border-radius:50%;background:var(--tenue)}
+.pos:hover{border-color:var(--neon)}
+.pos:hover i{background:var(--neon)}
+.filas{display:flex;flex-direction:column;gap:6px}
+.fila{display:grid;grid-template-columns:86px 1fr 86px;align-items:center;gap:10px;font-size:13px;color:var(--tenue)}
+.fila input[type=range]{width:100%;accent-color:var(--neon)}
+.num{display:flex;align-items:center;gap:4px}
+.num input{width:62px;background:var(--negro);border:1px solid var(--linea);border-radius:6px;padding:3px 6px;font-size:13px}
+.num em{font-style:normal;font-size:12px;width:16px}
+
+/* Random: agregar imágenes */
+.agregar{margin-bottom:16px}
+.form-agregar{margin-top:12px}
+.form-agregar h3{margin:0 0 12px;font-size:18px}
+.campo{width:100%;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:9px 12px}
+.form-fila{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.form-fila .campo{flex:1 1 220px;width:auto}
+.archivo{display:inline-block}
+.archivo input{position:absolute;width:1px;height:1px;opacity:0}
+.archivo:focus-within{outline:2px solid var(--rosa);outline-offset:2px}
+.nota{color:var(--tenue);font-size:13px;margin:6px 0 0}
+.vacio-texto{color:var(--tenue);border:1px dashed var(--linea);border-radius:var(--radio);padding:22px;text-align:center;margin:0}
+
+/* Opciones de los randoms */
+.opciones{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0 4px}
+.opcion{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--tenue)}
+.opcion select{background:var(--negro);border:1px solid var(--linea);border-radius:8px;padding:6px 10px;color:var(--blanco);font:inherit}
+.resultado{margin:10px 0 0;font-size:13px;color:var(--tenue)}
+.resultado strong{color:var(--rosa)}
+
+/* Catálogo */
+.cat-barra{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.cat-herr{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 12px}
+.cat-info{color:var(--tenue);font-size:14px}
+.cat-info strong{color:var(--blanco)}
+.cat-herr .campo{flex:0 1 240px;width:auto}
+.cat-agregar details{margin-top:10px}
+.cat-agregar summary{cursor:pointer;color:var(--tenue);font-size:14px;font-weight:700}
+.cat-agregar .lista{min-height:110px;margin:10px 0 8px}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-top:12px;max-height:620px;overflow-y:auto;padding-right:4px}
+.item{background:var(--sup);border:1px solid var(--linea);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.item.inactivo{opacity:.4}
+.item-img{aspect-ratio:1;border:0;padding:0;border-radius:8px;cursor:pointer;display:grid;place-items:center;overflow:hidden;
+  background:conic-gradient(#120d0f 25%,#1a1316 0 50%,#120d0f 0 75%,#1a1316 0) 0 0/12px 12px}
+.item-img img{max-width:100%;max-height:100%;object-fit:contain}
+.item-nombre{font-size:12px;font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.item-grupo{font-size:11px;color:var(--rosa)}
+.item-acc{display:flex;gap:4px;margin-top:auto}
+.item-acc button{flex:1;background:var(--sup2);border:1px solid var(--linea);border-radius:6px;font-size:11px;font-weight:700;padding:3px 0;cursor:pointer}
+.item-acc button:hover{border-color:var(--rosa)}
+
+/* Escenario */
+.escenario-col{position:sticky;top:78px;align-self:start}
+.escenario-cab{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:10px}
+.escenario-cab h2{margin:0;font-size:16px;font-weight:800}
+.escenario-cab small{color:var(--tenue)}
+.check{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tenue);cursor:pointer}
+.check input{accent-color:var(--neon)}
+.escenario{position:relative;aspect-ratio:16/9;border:1px solid var(--linea);border-radius:10px;overflow:hidden;
+  background:conic-gradient(#120d0f 25%,#1a1316 0 50%,#120d0f 0 75%,#1a1316 0) 0 0/26px 26px}
+#previa{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none;background:transparent}
+#cajas{position:absolute;inset:0}
+.caja{position:absolute;border:2px solid var(--neon);background:rgba(255,0,127,.14);border-radius:6px;cursor:grab;touch-action:none;user-select:none;
+  display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;font-weight:700;padding:2px;overflow:visible}
+.caja span{pointer-events:none;text-shadow:0 1px 2px #000;overflow:hidden}
+.caja.oculta{border-style:dashed;border-color:var(--rosa);background:rgba(255,194,220,.06)}
+.caja.sel{box-shadow:0 0 0 2px var(--blanco)}
+.caja.arrastrando{cursor:grabbing}
+.tirador{position:absolute;right:-8px;bottom:-8px;width:16px;height:16px;border-radius:4px;background:var(--blanco);border:2px solid var(--neon);cursor:nwse-resize}
+.ayuda{color:var(--tenue);font-size:13px;margin:10px 0 0}
+
+/* Zona del link */
+.link-zona{border-top:1px solid var(--neon);padding:18px 22px 26px;background:var(--sup)}
+.link-fila{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.link-fila input[type=text]{flex:1 1 360px;min-width:0;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:10px 12px;font-size:14px}
+.link-opciones{display:flex;flex-wrap:wrap;gap:18px;margin-top:10px}
+.link-nota{color:var(--tenue);font-size:13px;margin:8px 0 0}
+.config{margin-top:16px}
+.config summary{cursor:pointer;color:var(--tenue);font-weight:700;font-size:14px}
+.config-cuerpo{display:grid;gap:12px;margin-top:12px;max-width:760px;font-size:14px}
+.config-cuerpo code{color:var(--rosa)}
+.config-cuerpo pre{background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:12px;overflow-x:auto;font-size:13px;margin:0}
+.config-fila{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* Login */
+.login{position:fixed;inset:0;z-index:50;background:rgba(13,13,13,.92);display:grid;place-items:center;padding:20px}
+.login[hidden]{display:none}
+.login form{width:min(360px,100%);background:var(--sup);border:1px solid var(--neon);border-radius:18px;padding:26px;display:grid;gap:12px}
+.login h2{margin:0 0 4px;color:var(--rosa)}
+.login input{background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:10px 12px}
+.login .error{color:var(--rosa);font-size:13px;min-height:18px;margin:0}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;background:var(--blanco);color:var(--negro);font-weight:700;
+  padding:10px 18px;border-radius:999px;transition:opacity .2s, transform .2s;pointer-events:none;z-index:60;max-width:90vw;text-align:center}
+.toast.ver{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca"><div class="logo">BLOODSITAX</div><span>Panel del overlay</span><span class="prueba" id="marcaPrueba" hidden>Sala de pruebas</span></div>
+  <div class="conexion"><span class="punto" id="punto"></span><span id="textoConexion">Conectando</span></div>
+  <button class="btn borde" id="ocultarTodo">Ocultar todo</button>
+</header>
+
+<main class="layout">
+  <section aria-label="Controles">
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+    <div id="paneles"></div>
+  </section>
+
+  <aside class="escenario-col" aria-label="Escenario">
+    <div class="escenario-cab">
+      <h2>Escenario</h2><small>1920 x 1080</small>
+      <label class="check"><input type="checkbox" id="verPrevia"> Ver overlay real</label>
+      <label class="check"><input type="checkbox" id="verOcultos"> Mostrar ocultos</label>
+    </div>
+    <div class="escenario" id="escenario">
+      <iframe id="previa" title="Vista previa del overlay" src="about:blank"></iframe>
+      <div id="cajas"></div>
+    </div>
+    <p class="ayuda">Arrastra una caja para moverla y estírala desde la esquina para cambiar el tamaño. Con un elemento seleccionado, las flechas lo mueven 1 px y con Shift 10 px.</p>
+  </aside>
+</main>
+
+<footer class="link-zona">
+  <div class="link-fila">
+    <button class="btn principal grande" id="generarLink">Generar link del overlay</button>
+    <input type="text" id="linkOverlay" readonly placeholder="El link aparece aquí y siempre es el mismo">
+    <button class="btn" id="copiarLink">Copiar</button>
+    <button class="btn" id="abrirLink">Abrir</button>
+    <button class="btn" id="descargarOverlay">Descargar overlay.html</button>
+  </div>
+  <div class="link-opciones">
+    <label class="check"><input type="checkbox" id="fondoVerde"> Fondo verde para croma (lo recomendado es transparente)</label>
+    <label class="check"><input type="checkbox" id="guias"> Mostrar contornos en el overlay</label>
+  </div>
+  <p class="link-nota" id="notaLink"></p>
+
+  <details class="config">
+    <summary>Configuración</summary>
+    <div class="config-cuerpo">
+      <div id="modoTexto"></div>
+      <div class="config-fila" id="salaTexto"></div>
+      <div class="config-fila"><span>Tu UID:</span><code id="uid">sin sesión</code><button class="btn" id="cerrarSesion" hidden>Cerrar sesión</button></div>
+      <div>Reglas de Firebase (Realtime Database, pestaña Reglas):</div>
+      <pre id="reglas"></pre>
+      <div class="config-fila"><button class="btn" id="copiarReglas">Copiar reglas</button></div>
+    </div>
+  </details>
+</footer>
+
+<div class="login" id="login" hidden>
+  <form id="formLogin">
+    <h2>Iniciar sesión</h2>
+    <input type="email" id="correo" placeholder="Correo" autocomplete="username" required>
+    <input type="password" id="clave" placeholder="Contraseña" autocomplete="current-password" required>
+    <p class="error" id="errorLogin"></p>
+    <button class="btn principal" type="submit">Entrar</button>
+  </form>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/*CONFIG-BEGIN*/
+// Pega aquí la configuración de tu proyecto de Firebase (la misma en panel.html y overlay.html).
+// Si databaseURL queda vacío, todo funciona en modo local (solo en este navegador, para pruebas).
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBTo0aaqsTK7ucs7yaq5ONpd0OOSXqAvy0",
+  authDomain: "bloodsitax-panel.firebaseapp.com",
+  databaseURL: "https://bloodsitax-panel-default-rtdb.firebaseio.com",
+  projectId: "bloodsitax-panel",
+  storageBucket: "bloodsitax-panel.firebasestorage.app",
+  messagingSenderId: "1066841366963",
+  appId: "1:1066841366963:web:ee0559a51871aa191e6bc6"
+};
+// Sala fija: debe ser exactamente igual en panel.html y overlay.html.
+const SALA_FIJA = "bloodsitax";
+/*CONFIG-END*/
+
+const ANCHO = 1920, ALTO = 1080;
+
+// Elementos fijos del panel. w y h: tamaño base al 100%; x, y: centro.
+// tipo indica qué dibuja el overlay ("prueba" = tarjeta temporal mientras se implementa).
+const ELEMENTOS = {
+  'marvel-random':       { nombre:'Random de Marvel',   tipo:'tirada', juego:'marvel', w:1100, h:560, x:960, y:540 },
+  'dbd-killer-random':   { nombre:'Killer random',      tipo:'tirada', juego:'killer', w:1100, h:560, x:960, y:540 },
+  'dbd-killer-votacion': { nombre:'Votación de killer', accion:'Votación',       w:1500, h:640, x:960,  y:560 },
+  'dbd-survi-random':    { nombre:'Survi random',       tipo:'tirada', juego:'survi',  w:1100, h:560, x:960, y:540 },
+  'dbd-survi-votacion':  { nombre:'Votación de survi',  accion:'Votación',       w:1500, h:640, x:960,  y:560 },
+  'sorteo-ruleta':       { nombre:'Ruleta de sorteo',   tipo:'ruleta',           w:760,  h:760, x:960,  y:540 },
+  'retos-ruleta-chica':  { nombre:'Ruleta pequeña',     accion:'Ruleta pequeña', w:440,  h:440, x:1640, y:780 },
+  'retos-ruleta-grande': { nombre:'Ruleta grande',      accion:'Ruleta grande',  w:820,  h:820, x:960,  y:540 },
+  'horoscopo':           { nombre:'Horóscopo',          signos:true,             w:760,  h:420, x:1480, y:300 }
+};
+const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
+const PESTANAS = [
+  { id:'marvel', nombre:'Marvel', elementos:['marvel-random'] },
+  { id:'dbd', nombre:'DBD', sub:[
+      { id:'killer', nombre:'Killer', elementos:['dbd-killer-random','dbd-killer-votacion'] },
+      { id:'survi',  nombre:'Survi',  elementos:['dbd-survi-random','dbd-survi-votacion'] } ] },
+  { id:'sorteo', nombre:'Sorteo', elementos:['sorteo-ruleta'] },
+  { id:'retos', nombre:'Retos', elementos:['retos-ruleta-chica','retos-ruleta-grande'] },
+  { id:'horoscopo', nombre:'Horóscopo', elementos:['horoscopo'] },
+  { id:'random', nombre:'Random', elementos:[], imagenes:true },
+  { id:'catalogo', nombre:'Catálogo', elementos:[], catalogo:true }
+];
+// Categorías del catálogo. lado = tamaño máximo al que se comprime cada imagen.
+const CATEGORIAS = {
+  'killers':      { nombre:'Killers',         lado:360 },
+  'survis':       { nombre:'Survis',          lado:360 },
+  'perks-killer': { nombre:'Perks de killer', lado:220 },
+  'perks-survi':  { nombre:'Perks de survi',  lado:220 },
+  'marvel':       { nombre:'Marvel',          lado:360 }
+};
+// Qué categorías usa cada random
+const JUEGOS = {
+  killer: { personaje:'killers', perks:'perks-killer', titulo:'Killer' },
+  survi:  { personaje:'survis',  perks:'perks-survi',  titulo:'Survi' },
+  marvel: { personaje:'marvel' }
+};
+const SENUELOS = 8;        // imágenes de paso en cada carta durante la animación
+const ESPERA_TIRADA = 1200; // ms que el overlay tiene para precargar antes de animar
+const NOMBRES_POS = ['Arriba a la izquierda','Arriba al centro','Arriba a la derecha','Centro izquierda','Centro','Centro derecha','Abajo a la izquierda','Abajo al centro','Abajo a la derecha'];
+const MARGEN = 40;
+const MAX_OPCIONES = 300;
+const DURACION_GIRO = 7000;
+const LIMITE_FOTO = 900000;          // caracteres del dataURL de una foto comprimida (~650 KB)
+const LIMITE_GIF = 1.5 * 1024 * 1024; // los GIF se suben sin recomprimir para no perder la animación
+
+const PRUEBA = new URLSearchParams(location.search).get('prueba') === '1';
+const sala = PRUEBA ? SALA_FIJA + '-prueba' : SALA_FIJA;
+
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const mod = (a,n) => ((a % n) + n) % n;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- Azar 100% (crypto, sin sesgo) ---------- */
+function randInt(n){
+  const limite = Math.floor(0x100000000 / n) * n, a = new Uint32Array(1);
+  do crypto.getRandomValues(a); while(a[0] >= limite);
+  return a[0] % n;
+}
+function randFloat(){ const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 0x100000000; }
+function barajar(lista){
+  const a = lista.slice();
+  for(let i = a.length - 1; i > 0; i--){ const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function idAleatorio(n){
+  const a = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({length:n}, () => a[randInt(a.length)]).join('');
+}
+
+function leerLS(k){ try{ return localStorage.getItem(k); }catch{ return null; } }
+function guardarLS(k,v){ try{ localStorage.setItem(k,v); return true; }catch{ return false; } }
+
+let desfaseServidor = 0;
+const ahora = () => Date.now() + desfaseServidor;
+
+function porDefecto(id){
+  const d = ELEMENTOS[id];
+  const base = { nombre:d.nombre, tipo:d.tipo || 'prueba', w:d.w, h:d.h, x:d.x, y:d.y, escala:1, rot:0, opacidad:1, capa:1, visible:false, datos:null };
+  if(d.juego) base.opc = d.juego === 'marvel' ? { cantidad:1, grupo:'' } : { perks:4 };
+  return base;
+}
+const estado = {};
+for(const id in ELEMENTOS) estado[id] = porDefecto(id);
+let imagenes = {};
+
+let seleccionado = null;
+const editadoEn = {};
+const BLOQUEO = 450; // ms en que se ignoran ecos remotos de un elemento que estás editando
+
+/* ---------- Sincronización (Firebase o local) ---------- */
+const Sync = {
+  modo:'local', raiz:null, canal:null, pend:{}, timer:null, uid:null, avisoCuota:false,
+  iniciar(){
+    if(FIREBASE_CONFIG.databaseURL && window.firebase){
+      this.modo = 'firebase';
+      firebase.initializeApp(FIREBASE_CONFIG);
+      firebase.auth().onAuthStateChanged(u => {
+        if(u){ $('#login').hidden = true; this.conectar(u); }
+        else { $('#login').hidden = false; conexion(false, 'Inicia sesión para controlar el overlay'); this.uid = null; pintarConfig(); }
+      });
+    } else {
+      this.modo = 'local';
+      this.canal = new BroadcastChannel('bsx-' + sala);
+      try{
+        const g = JSON.parse(leerLS('bsx-estado-' + sala) || 'null');
+        if(g) for(const id in g) estado[id] = ELEMENTOS[id] ? { ...porDefecto(id), ...g[id] } : g[id];
+        imagenes = JSON.parse(leerLS('bsx-imagenes-' + sala) || 'null') || {};
+      }catch{}
+      conexion(true, 'Modo local: solo funciona en este navegador');
+      Cat.iniciarLocal();
+      this.guardarLocal();
+      pintarRandom(true);
+      pintarTodo();
+    }
+    pintarConfig();
+  },
+  conectar(u){
+    this.uid = u.uid; pintarConfig();
+    const db = firebase.database();
+    this.raiz = db.ref(`overlay/${sala}`);
+    db.ref('.info/serverTimeOffset').on('value', s => { desfaseServidor = s.val() || 0; });
+    const ref = this.raiz.child('elementos');
+    ref.once('value').then(s => {
+      const v = s.val() || {}, up = {};
+      for(const id in ELEMENTOS){
+        const p = porDefecto(id);
+        if(!v[id]) up[id] = p;
+        else if(v[id].tipo !== p.tipo) up[`${id}/tipo`] = p.tipo;
+      }
+      if(Object.keys(up).length) ref.update(up).catch(e => toast('No se pudo preparar la sala: ' + e.message));
+    });
+    ref.on('value', s => aplicarRemoto(s.val() || {}), () => conexion(false, 'Sin permiso: revisa las reglas de Firebase'));
+    Cat.conectar(db);
+    this.raiz.child('imagenes').on('value', s => { imagenes = s.val() || {}; pintarRandom(true); });
+    db.ref('.info/connected').on('value', s => conexion(!!s.val(), s.val() ? 'Conectado a Firebase' : 'Reconectando'));
+  },
+  enviar(id, patch){
+    this.pend[id] = Object.assign(this.pend[id] || {}, patch);
+    if(!this.timer) this.timer = setTimeout(() => this.vaciar(), 70);
+  },
+  vaciar(){
+    const p = this.pend; this.pend = {}; this.timer = null;
+    if(this.modo === 'firebase'){
+      if(!this.raiz) return;
+      const up = {};
+      for(const id in p) for(const k in p[id]) up[`elementos/${id}/${k}`] = p[id][k];
+      this.raiz.update(up).catch(e => toast('No se pudo guardar: ' + e.message));
+    } else this.guardarLocal();
+  },
+  // Escritura de varias rutas a la vez (agregar o borrar imágenes)
+  escribir(up){
+    if(this.modo === 'firebase'){
+      if(!this.raiz) return Promise.reject(new Error('Inicia sesión primero.'));
+      return this.raiz.update(up);
+    }
+    this.guardarLocal();
+    return Promise.resolve();
+  },
+  guardarLocal(){
+    guardarLS('bsx-estado-' + sala, JSON.stringify(estado));
+    if(!guardarLS('bsx-imagenes-' + sala, JSON.stringify(imagenes)) && !this.avisoCuota){
+      this.avisoCuota = true;
+      toast('Modo local: las imágenes no caben en el navegador, se verán hasta que recargues');
+    }
+    if(this.canal) this.canal.postMessage({ elementos:estado });
+  }
+};
+
+function aplicarRemoto(v){
+  const t = performance.now();
+  for(const id of Object.keys(estado)) if(!ELEMENTOS[id] && !v[id] && t - (editadoEn[id] || 0) > 2000) delete estado[id];
+  for(const id in v){
+    if(estado[id] && t - (editadoEn[id] || 0) < BLOQUEO) continue;
+    estado[id] = ELEMENTOS[id] ? { ...porDefecto(id), ...v[id] } : v[id];
+  }
+  pintarRandom();
+  pintarTodo();
+}
+
+function update(id, patch){
+  if(!estado[id]) return;
+  Object.assign(estado[id], patch);
+  editadoEn[id] = performance.now();
+  pintar(id);
+  Sync.enviar(id, patch);
+}
+
+/* ---------- Construcción de la interfaz ---------- */
+function fila(campo, etiqueta, min, max, unidad){
+  return `<div class="fila"><span>${etiqueta}</span>
+    <input type="range" data-campo="${campo}" min="${min}" max="${max}" step="1" aria-label="${etiqueta}">
+    <span class="num"><input type="number" data-campo="${campo}" min="${min}" max="${max}" step="1" aria-label="${etiqueta}"><em>${unidad}</em></span></div>`;
+}
+function bloqueAjustes(abierto){
+  return `<details class="ajustes" ${abierto ? 'open' : ''}>
+      <summary>Posición y tamaño</summary>
+      <div class="ajustes-cuerpo">
+        <div class="rejilla">${NOMBRES_POS.map((n,i) => `<button class="pos" data-pos="${i}" title="${n}" aria-label="${n}"><i></i></button>`).join('')}</div>
+        <div class="filas">
+          ${fila('x','Posición X',0,ANCHO,'px')}
+          ${fila('y','Posición Y',0,ALTO,'px')}
+          ${fila('escala','Tamaño',10,300,'%')}
+          ${fila('rot','Rotación',-180,180,'°')}
+          ${fila('opacidad','Opacidad',0,100,'%')}
+          ${fila('capa','Capa',1,50,'')}
+        </div>
+      </div>
+      <div class="acciones chicas">
+        <button class="btn" data-act="centrar">Centrar</button>
+        <button class="btn" data-act="frente">Al frente</button>
+        <button class="btn" data-act="fondo">Al fondo</button>
+        <button class="btn" data-act="reset">Restablecer</button>
+      </div>
+    </details>`;
+}
+function tarjeta(id){
+  const e = estado[id], d = ELEMENTOS[id] || {};
+  const pill = `<span class="pill" data-pill>Oculto</span>`;
+  if(e.tipo === 'imagen'){
+    return `<article class="tarjeta" data-el="${id}">
+      <header class="tarjeta-cab"><div class="cab-img"><img class="miniatura" data-mini alt=""><h3>${esc(e.nombre)}</h3></div>${pill}</header>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="mostrar">Mostrar</button>
+        <button class="btn" data-act="ocultar">Ocultar</button>
+        <button class="btn quitar" data-act="eliminar">Eliminar</button>
+      </div>
+      ${bloqueAjustes(false)}
+    </article>`;
+  }
+  let cuerpo;
+  if(e.tipo === 'tirada'){
+    const marvel = d.juego === 'marvel';
+    const opciones = marvel
+      ? `<label class="opcion">Personajes <select data-opc="cantidad">${[1,2,3,4,5,6].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
+         <label class="opcion">Grupo <select data-opc="grupo"><option value="">Todos</option></select></label>`
+      : `<label class="opcion">Perks <select data-opc="perks">${[0,1,2,3,4].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>`;
+    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="tirar">Random</button><button class="btn" data-act="ocultar">Ocultar</button></div>
+      <div class="opciones">${opciones}</div>
+      <p class="resultado" data-resultado></p>`;
+  } else if(e.tipo === 'ruleta'){
+    cuerpo = `<textarea class="lista" data-lista placeholder="Escribe un nombre por línea" aria-label="Lista de la ruleta"></textarea>
+      <div class="lista-info"><span data-conteo>0 opciones</span><strong data-ganador></strong></div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="girar">Girar</button>
+        <button class="btn grande" data-act="mezclar">Mezclar</button>
+      </div>
+      <div class="acciones">
+        <button class="btn" data-act="mostrar">Mostrar</button>
+        <button class="btn" data-act="ocultar">Ocultar</button>
+        <button class="btn quitar" data-act="quitarGanador" hidden>Quitar ganador de la lista</button>
+      </div>`;
+  } else if(d.signos){
+    cuerpo = `<div class="signos">${SIGNOS.map(s => `<button class="btn signo" data-signo="${s}">${s}</button>`).join('')}</div>
+      <div class="acciones"><button class="btn" data-act="ocultar">Ocultar</button></div>`;
+  } else {
+    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="lanzar">${d.accion}</button><button class="btn" data-act="ocultar">Ocultar</button></div>`;
+  }
+  return `<article class="tarjeta" data-el="${id}">
+    <header class="tarjeta-cab"><h3>${esc(e.nombre)}</h3>${pill}</header>
+    ${cuerpo}
+    ${bloqueAjustes(true)}
+  </article>`;
+}
+function bloqueImagenes(){
+  return `<div class="agregar">
+      <button class="btn principal grande" id="btnAgregar" aria-expanded="false">Agregar</button>
+      <div class="tarjeta form-agregar" id="formAgregar" hidden>
+        <h3>Agregar imagen</h3>
+        <div class="form-fila"><input class="campo" type="text" id="nombreImg" maxlength="40" placeholder="Nombre (opcional)"></div>
+        <div class="form-fila">
+          <label class="btn principal archivo">Subir desde mi PC<input type="file" id="archivoImg" accept="image/*"></label>
+          <span class="nota">o pega una imagen con Ctrl+V</span>
+        </div>
+        <div class="form-fila">
+          <input class="campo" type="url" id="urlImg" placeholder="Pega el link directo de una imagen">
+          <button class="btn" id="agregarUrl">Agregar desde link</button>
+        </div>
+        <p class="nota" id="estadoImg">Las fotos se reducen y comprimen solas. Los GIF se suben tal cual, hasta 1.5 MB.</p>
+      </div>
+    </div>
+    <div id="listaImagenes"></div>`;
+}
+function construir(){
+  const nav = $('#tabs'), cont = $('#paneles');
+  PESTANAS.forEach((p, i) => {
+    nav.insertAdjacentHTML('beforeend', `<button class="tab" role="tab" data-tab="${p.id}" aria-selected="${i === 0}">${p.nombre}</button>`);
+    let html = `<div class="panel" data-panel="${p.id}" ${i ? 'hidden' : ''}>`;
+    if(p.sub){
+      html += `<div class="tabs subtabs" role="tablist">` + p.sub.map((s, j) =>
+        `<button class="tab" role="tab" data-subtab="${p.id}:${s.id}" aria-selected="${j === 0}">${s.nombre}</button>`).join('') + `</div>`;
+      html += p.sub.map((s, j) => `<div data-subpanel="${p.id}:${s.id}" ${j ? 'hidden' : ''}>${s.elementos.map(tarjeta).join('')}</div>`).join('');
+    } else html += p.elementos.map(tarjeta).join('');
+    if(p.imagenes) html += bloqueImagenes();
+    if(p.catalogo) html += bloqueCatalogo();
+    cont.insertAdjacentHTML('beforeend', html + '</div>');
+  });
+}
+function activarTab(tab){
+  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== tab);
+  if(tab === 'catalogo') Cat.alMostrar();
+}
+function activarSub(clave){
+  const [tab] = clave.split(':');
+  document.querySelectorAll(`[data-subtab^="${tab}:"]`).forEach(b => b.setAttribute('aria-selected', b.dataset.subtab === clave));
+  document.querySelectorAll(`[data-subpanel^="${tab}:"]`).forEach(p => p.hidden = p.dataset.subpanel !== clave);
+  if(tab === 'catalogo') Cat.alMostrar();
+}
+function irA(id){
+  if(estado[id] && estado[id].tipo === 'imagen') activarTab('random');
+  for(const p of PESTANAS){
+    if((p.elementos || []).includes(id)) activarTab(p.id);
+    if(p.sub) for(const s of p.sub) if(s.elementos.includes(id)){ activarTab(p.id); activarSub(`${p.id}:${s.id}`); }
+  }
+  const t = document.querySelector(`.tarjeta[data-el="${id}"]`);
+  if(t) t.scrollIntoView({ block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+function seleccionar(id, desdeEscenario){
+  seleccionado = id;
+  document.querySelectorAll('.tarjeta[data-el]').forEach(t => t.classList.toggle('sel', t.dataset.el === id));
+  if(desdeEscenario) irA(id);
+  pintarCajas();
+}
+
+/* ---------- Pintado ---------- */
+const valorUI = (c, e) => c === 'escala' ? Math.round(e.escala * 100) : c === 'opacidad' ? Math.round(e.opacidad * 100) : Math.round(e[c]);
+const leerLista = txt => txt.split('\n').map(s => s.trim()).filter(Boolean).slice(0, MAX_OPCIONES);
+const textoConteo = n => `${n} ${n === 1 ? 'opción' : 'opciones'}`;
+const girando = g => !!g && ahora() < g.inicio + g.duracion;
+
+function pintarTarjeta(id){
+  const t = document.querySelector(`.tarjeta[data-el="${id}"]`); if(!t) return;
+  const e = estado[id];
+  t.classList.toggle('on', !!e.visible);
+  t.querySelector('[data-pill]').textContent = e.visible ? 'En pantalla' : 'Oculto';
+  t.querySelectorAll('[data-campo]').forEach(inp => {
+    if(inp === document.activeElement && inp.type === 'number') return;
+    inp.value = valorUI(inp.dataset.campo, e);
+  });
+  t.querySelectorAll('[data-signo]').forEach(b => b.classList.toggle('activo', !!e.visible && !!e.datos && e.datos.signo === b.dataset.signo));
+  if(e.tipo === 'tirada'){
+    const o = e.opc || {};
+    t.querySelectorAll('[data-opc]').forEach(sel => {
+      if(sel.dataset.opc === 'grupo'){
+        const grupos = Cat.grupos('marvel'), actual = o.grupo || '';
+        const firma = grupos.join('|');
+        if(sel._firma !== firma){
+          sel._firma = firma;
+          sel.innerHTML = '<option value="">Todos</option>' + grupos.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+        }
+        sel.value = grupos.includes(actual) ? actual : '';
+      } else if(sel !== document.activeElement) sel.value = String(o[sel.dataset.opc] ?? '');
+    });
+    const cartas = lista(e.datos && e.datos.cartas);
+    t.querySelector('[data-resultado]').innerHTML = cartas.length
+      ? 'Resultado: <strong>' + cartas.map(k => esc(k.f && k.f.n)).join(', ') + '</strong>' : '';
+  }
+  if(e.tipo === 'ruleta'){
+    const d = e.datos || {}, ops = d.opciones || [], g = d.giro;
+    const ta = t.querySelector('[data-lista]');
+    if(ta !== document.activeElement) ta.value = ops.join('\n');
+    t.querySelector('[data-conteo]').textContent = textoConteo(ops.length);
+    const gir = girando(g);
+    t.querySelector('[data-ganador]').textContent = g ? (gir ? 'Girando...' : 'Ganador: ' + g.nombre) : '';
+    t.querySelector('[data-act="quitarGanador"]').hidden = !(g && !gir);
+    t.querySelector('[data-act="girar"]').disabled = gir;
+  }
+  if(e.tipo === 'imagen'){
+    const mini = t.querySelector('[data-mini]'), im = imagenes[e.imagen];
+    if(im && mini.getAttribute('src') !== im.src) mini.setAttribute('src', im.src);
+  }
+}
+const cajas = {};
+function pintarCaja(id){
+  const e = estado[id];
+  const mostrar = e.visible || id === seleccionado || $('#verOcultos').checked;
+  let c = cajas[id];
+  if(!mostrar){ if(c) c.hidden = true; return; }
+  if(!c){
+    c = document.createElement('div'); c.className = 'caja'; c.dataset.el = id;
+    const s = document.createElement('span');
+    const t = document.createElement('b'); t.className = 'tirador';
+    c.append(s, t); $('#cajas').append(c); cajas[id] = c;
+  }
+  c.firstChild.textContent = e.nombre;
+  c.hidden = false;
+  const w = e.w * e.escala, h = e.h * e.escala;
+  c.style.left = ((e.x - w / 2) / ANCHO * 100) + '%';
+  c.style.top = ((e.y - h / 2) / ALTO * 100) + '%';
+  c.style.width = (w / ANCHO * 100) + '%';
+  c.style.height = (h / ALTO * 100) + '%';
+  c.style.transform = `rotate(${e.rot}deg)`;
+  c.style.zIndex = e.capa;
+  c.classList.toggle('oculta', !e.visible);
+  c.classList.toggle('sel', id === seleccionado);
+}
+function pintarCajas(){
+  for(const id in cajas) if(!estado[id]){ cajas[id].remove(); delete cajas[id]; }
+  for(const id in estado) pintarCaja(id);
+}
+function pintar(id){ pintarTarjeta(id); pintarCaja(id); }
+function pintarTodo(){ for(const id in estado) pintarTarjeta(id); pintarCajas(); }
+
+let firmaRandom = null;
+function idsImagenes(){
+  return Object.keys(estado).filter(id => estado[id].tipo === 'imagen')
+    .sort((a, b) => (estado[a].creado || 0) - (estado[b].creado || 0));
+}
+function pintarRandom(forzar){
+  const cont = $('#listaImagenes'); if(!cont) return;
+  const ids = idsImagenes();
+  const firma = ids.join(',') + '|' + Object.keys(imagenes).sort().join(',');
+  if(firma === firmaRandom && !forzar) return;
+  firmaRandom = firma;
+  cont.innerHTML = ids.length ? ids.map(tarjeta).join('')
+    : '<p class="vacio-texto">Aún no hay imágenes. Usa Agregar o pega una imagen con Ctrl+V.</p>';
+  ids.forEach(pintarTarjeta);
+  if(seleccionado) document.querySelectorAll('.tarjeta[data-el]').forEach(t => t.classList.toggle('sel', t.dataset.el === seleccionado));
+}
+
+function conexion(ok, texto){ $('#punto').classList.toggle('ok', ok); $('#textoConexion').textContent = texto; }
+
+/* ---------- Ruleta ---------- */
+const anguloActual = d => d ? (d.giro ? d.giro.hasta : (d.angulo || 0)) : 0;
+function cambiarLista(id, ops){
+  const d = estado[id].datos || {};
+  update(id, { datos:{ opciones:ops, angulo:mod(anguloActual(d), 360), giro:null } });
+}
+function girar(id){
+  const d = estado[id].datos || {}, ops = d.opciones || [];
+  if(ops.length < 2) return toast('Escribe al menos 2 opciones en la lista');
+  if(girando(d.giro)) return toast('La ruleta sigue girando');
+  const n = ops.length, seg = 360 / n, g = randInt(n);
+  const desde = anguloActual(d);
+  const desvio = (randFloat() - .5) * seg * .7;           // cae en un punto al azar dentro de la casilla
+  const objetivo = mod(-(g + .5) * seg + desvio, 360);
+  const vueltas = 6 + randInt(3);
+  const hasta = desde - mod(desde, 360) + vueltas * 360 + objetivo;
+  const inicio = ahora() + (estado[id].visible ? 300 : 700);
+  update(id, { visible:true, datos:{ opciones:ops, angulo:mod(desde, 360), giro:{ ganador:g, nombre:ops[g], desde, hasta, inicio, duracion:DURACION_GIRO } } });
+}
+function mezclarLista(id){
+  const d = estado[id].datos || {}, ops = d.opciones || [];
+  if(ops.length < 2) return toast('Escribe al menos 2 opciones en la lista');
+  if(girando(d.giro)) return toast('Espera a que termine el giro');
+  update(id, { datos:{ opciones:barajar(ops), angulo:mod(anguloActual(d), 360), giro:null } });
+  toast('Lista mezclada');
+}
+function quitarGanador(id){
+  const d = estado[id].datos || {}, g = d.giro;
+  if(!g || girando(g)) return;
+  const ops = (d.opciones || []).slice();
+  const k = ops[g.ganador] === g.nombre ? g.ganador : ops.indexOf(g.nombre);
+  if(k >= 0) ops.splice(k, 1);
+  update(id, { datos:{ opciones:ops, angulo:mod(g.hasta, 360), giro:null } });
+  toast(`"${g.nombre}" salió de la lista`);
+}
+
+/* ---------- Imágenes ---------- */
+function cargarImagen(src){
+  return new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => mal(new Error('No se pudo leer la imagen.')); i.src = src; });
+}
+function leerDataURL(file){
+  return new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => mal(new Error('No se pudo leer el archivo.')); r.readAsDataURL(file); });
+}
+async function procesarArchivo(file){
+  if(!file || !file.type.startsWith('image/')) throw new Error('Ese archivo no es una imagen.');
+  if(file.type === 'image/gif'){
+    if(file.size > LIMITE_GIF) throw new Error(`El GIF pesa ${(file.size / 1048576).toFixed(1)} MB y el máximo es 1.5 MB. Redúcelo o usa un link.`);
+    const src = await leerDataURL(file), i = await cargarImagen(src);
+    return { src, ancho:i.naturalWidth, alto:i.naturalHeight };
+  }
+  return comprimir(file, 1600, LIMITE_FOTO);
+}
+async function comprimir(file, ladoMax, limite){
+  const url = URL.createObjectURL(file);
+  try{
+    const i = await cargarImagen(url);
+    let lado = ladoMax;
+    for(let intento = 0; intento < 5; intento++){
+      const f = Math.min(1, lado / Math.max(i.naturalWidth, i.naturalHeight));
+      const w = Math.max(1, Math.round(i.naturalWidth * f)), h = Math.max(1, Math.round(i.naturalHeight * f));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(i, 0, 0, w, h);
+      for(const q of [.9, .8, .7, .6, .5]){
+        let src = c.toDataURL('image/webp', q);
+        if(!src.startsWith('data:image/webp')) src = c.toDataURL('image/png');
+        if(src.length <= limite) return { src, ancho:w, alto:h };
+      }
+      lado = Math.round(lado * .75);
+    }
+    throw new Error('La imagen sigue muy pesada después de comprimirla. Prueba con otra o usa un link.');
+  } finally { URL.revokeObjectURL(url); }
+}
+async function desdeLink(url){
+  if(!/^https?:\/\//i.test(url)) throw new Error('El link debe empezar con http:// o https://');
+  let i;
+  try{ i = await cargarImagen(url); }
+  catch{ throw new Error('No se pudo cargar esa imagen. Revisa que el link lleve directo a la imagen.'); }
+  return { src:url, ancho:i.naturalWidth || 800, alto:i.naturalHeight || 600 };
+}
+async function agregarImagen(r, nombre, origen){
+  const imgId = idAleatorio(8), id = 'img-' + imgId;
+  const f = Math.min(1, 800 / r.ancho, 600 / r.alto);
+  const capa = Math.min(50, Math.max(1, ...Object.values(estado).map(o => o.capa || 1)) + 1);
+  imagenes[imgId] = { nombre, src:r.src, ancho:r.ancho, alto:r.alto, origen };
+  estado[id] = { nombre, tipo:'imagen', imagen:imgId, w:Math.max(20, Math.round(r.ancho * f)), h:Math.max(20, Math.round(r.alto * f)),
+                 x:ANCHO / 2, y:ALTO / 2, escala:1, rot:0, opacidad:1, capa, visible:false, datos:null, creado:Date.now() };
+  editadoEn[id] = performance.now();
+  try{
+    await Sync.escribir({ [`imagenes/${imgId}`]:imagenes[imgId], [`elementos/${id}`]:estado[id] });
+  }catch(e){
+    delete imagenes[imgId]; delete estado[id]; pintarRandom(true); pintarCajas();
+    throw new Error('No se pudo guardar la imagen: ' + e.message);
+  }
+  pintarRandom(true); pintarCaja(id); seleccionar(id, false);
+}
+function eliminarImagen(id){
+  const e = estado[id]; if(!e) return;
+  if(!confirm(`¿Eliminar "${e.nombre}"?`)) return;
+  const imgId = e.imagen;
+  delete estado[id]; delete imagenes[imgId];
+  if(seleccionado === id) seleccionado = null;
+  Sync.escribir({ [`imagenes/${imgId}`]:null, [`elementos/${id}`]:null }).catch(err => toast('No se pudo eliminar: ' + err.message));
+  pintarRandom(true); pintarCajas();
+}
+async function manejarImagen(promesa, nombreBase, origen){
+  const est = $('#estadoImg');
+  est.textContent = 'Procesando imagen...';
+  try{
+    const r = await promesa;
+    const nombre = ($('#nombreImg').value.trim() || nombreBase || 'Imagen').slice(0, 40);
+    await agregarImagen(r, nombre, origen);
+    est.textContent = 'Imagen agregada. Acomódala y dale a Mostrar.';
+    $('#nombreImg').value = ''; $('#urlImg').value = '';
+  }catch(e){ est.textContent = e.message; }
+}
+const nombreDeArchivo = f => (f.name || 'Imagen').replace(/\.[^.]+$/, '').slice(0, 40);
+
+/* ---------- Utilidades de listas ---------- */
+const lista = v => Array.isArray(v) ? v.filter(x => x != null) : (v ? Object.values(v) : []);
+// k elementos distintos al azar (Fisher-Yates parcial con crypto)
+function muestra(arr, k){
+  const a = arr.slice(), n = Math.min(k, a.length);
+  for(let i = 0; i < n; i++){ const j = i + randInt(a.length - i); [a[i], a[j]] = [a[j], a[i]]; }
+  return a.slice(0, n);
+}
+// Rellena repitiendo hasta tener k elementos (para catálogos chicos)
+function rellenar(arr, k){
+  if(!arr.length) return [];
+  const out = [];
+  while(out.length < k) out.push(...barajar(arr));
+  return out.slice(0, k);
+}
+
+/* ---------- Randoms con animación ---------- */
+// Referencia ligera a una imagen del catálogo: solo lo necesario para que el overlay la pida.
+function refCat(c, id, conNombre){
+  const e = Cat.indice[c][id], r = { c, i:id };
+  if(e.u) r.u = e.u;
+  if(conNombre){ r.n = e.n; if(e.g) r.g = e.g; }
+  return r;
+}
+function tirar(id){
+  const e = estado[id], j = JUEGOS[ELEMENTOS[id].juego], o = e.opc || {};
+  const cartas = [];
+  if(j.perks){
+    const pers = Cat.activos(j.personaje), perks = Cat.activos(j.perks), nPerks = clamp(o.perks ?? 4, 0, 4);
+    if(!pers.length) return toast(`Agrega ${CATEGORIAS[j.personaje].nombre.toLowerCase()} en Catálogo`);
+    if(perks.length < nPerks) return toast(`Faltan perks activos en ${CATEGORIAS[j.perks].nombre}`);
+    const fin = pers[randInt(pers.length)];
+    cartas.push({ g:1, f:refCat(j.personaje, fin, true),
+      s:rellenar(muestra(pers.filter(x => x !== fin), SENUELOS), SENUELOS).map(x => refCat(j.personaje, x)) });
+    const elegidas = muestra(perks, nPerks);
+    const pozo = muestra(perks.filter(x => !elegidas.includes(x)), SENUELOS + 4);
+    for(const p of elegidas) cartas.push({ f:refCat(j.perks, p, true), s:rellenar(barajar(pozo), SENUELOS).map(x => refCat(j.perks, x)) });
+  } else {
+    let pers = Cat.activos(j.personaje);
+    if(o.grupo) pers = pers.filter(x => (Cat.indice[j.personaje][x].g || '') === o.grupo);
+    const n = clamp(o.cantidad || 1, 1, 6);
+    if(pers.length < n) return toast(pers.length ? `Solo hay ${pers.length} personajes activos con ese filtro` : 'Agrega personajes de Marvel en Catálogo');
+    const elegidos = muestra(pers, n);
+    const pozo = muestra(pers.filter(x => !elegidos.includes(x)), SENUELOS + 4);
+    for(const p of elegidos) cartas.push({ g:1, f:refCat(j.personaje, p, true), s:rellenar(barajar(pozo.length ? pozo : elegidos), SENUELOS).map(x => refCat(j.personaje, x)) });
+  }
+  update(id, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas } });
+}
+
+/* ---------- Almacenamiento local (modo sin Firebase) ---------- */
+const idb = {
+  db:null,
+  abrir(){
+    return this.db || (this.db = new Promise((ok, mal) => {
+      const r = indexedDB.open('bsx-local', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error);
+    }));
+  },
+  async get(k){
+    const db = await this.abrir();
+    return new Promise((ok, mal) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => ok(q.result); q.onerror = () => mal(q.error); });
+  },
+  async poner(obj){
+    const db = await this.abrir();
+    return new Promise((ok, mal) => {
+      const tx = db.transaction('kv', 'readwrite'), st = tx.objectStore('kv');
+      for(const k in obj) obj[k] === null ? st.delete(k) : st.put(obj[k], k);
+      tx.oncomplete = () => ok(); tx.onerror = () => mal(tx.error);
+    });
+  }
+};
+
+/* ---------- Catálogo ---------- */
+// Índice (nombres, activo, grupo, link) separado de las imágenes:
+// el panel solo descarga el índice y cada imagen se pide cuando hace falta.
+const Cat = {
+  indice:Object.fromEntries(Object.keys(CATEGORIAS).map(c => [c, {}])), db:null, cache:new Map(), firmas:{}, actual:'killers', obs:null,
+  conectar(db){
+    this.db = db;
+    for(const c in CATEGORIAS){
+      db.ref(`catalogo/${c}/indice`).on('value', s => { this.indice[c] = s.val() || {}; this.cambio(c); });
+    }
+  },
+  async iniciarLocal(){
+    for(const c in CATEGORIAS){ this.indice[c] = (await idb.get('indice:' + c).catch(() => null)) || {}; this.cambio(c); }
+  },
+  cambio(c){
+    this.pintarInfo(c);
+    if(this.visible(c)) this.pintarGrid(c);
+    for(const id in estado) if(estado[id].tipo === 'tirada') pintarTarjeta(id);
+  },
+  activos(c){ return Object.keys(this.indice[c] || {}).filter(id => this.indice[c][id].a !== 0); },
+  grupos(c){ return [...new Set(Object.values(this.indice[c] || {}).map(e => e.g).filter(Boolean))].sort(); },
+  // Escribe rutas "catalogo/<cat>/indice/<id>" y "catalogo/<cat>/img/<id>"
+  async escribir(up){
+    if(this.db) return this.db.ref().update(up);
+    const kv = {}, tocadas = new Set();
+    for(const ruta in up){
+      const [, c, tipo, id] = ruta.split('/');
+      if(tipo === 'indice'){
+        if(up[ruta] === null) delete this.indice[c][id]; else this.indice[c][id] = up[ruta];
+        tocadas.add(c);
+      } else kv[`img:${c}:${id}`] = up[ruta];
+    }
+    for(const c of tocadas) kv['indice:' + c] = this.indice[c];
+    await idb.poner(kv);
+    tocadas.forEach(c => this.cambio(c));
+  },
+  img(c, id){
+    const e = (this.indice[c] || {})[id];
+    if(e && e.u) return Promise.resolve(e.u);
+    const k = c + '/' + id;
+    if(!this.cache.has(k)){
+      const p = this.db ? this.db.ref(`catalogo/${c}/img/${id}`).once('value').then(s => s.val()) : idb.get(`img:${c}:${id}`);
+      this.cache.set(k, p.catch(() => null));
+    }
+    return this.cache.get(k);
+  },
+  porNombre(c){
+    const m = new Map();
+    for(const id in this.indice[c]) m.set(this.indice[c][id].n.toLowerCase(), id);
+    return m;
+  },
+  progreso(c, txt){ const el = document.querySelector(`[data-cat="${c}"] [data-progreso]`); if(el) el.textContent = txt; },
+  async subir(c, files, grupo){
+    files = files.filter(f => f.type.startsWith('image/'));
+    if(!files.length) return;
+    const nombres = this.porNombre(c);
+    let lote = {}, hechos = 0, errores = 0, nuevos = 0, reemplazos = 0;
+    const vaciar = async () => { if(Object.keys(lote).length){ await this.escribir(lote); lote = {}; } };
+    try{
+      for(const f of files){
+        try{
+          const r = await comprimir(f, CATEGORIAS[c].lado, 160000);
+          const n = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) || 'Sin nombre';
+          const previo = nombres.get(n.toLowerCase());
+          const id = previo || idAleatorio(10);
+          const viejo = previo ? this.indice[c][previo] : null;
+          const entrada = { n, a: viejo ? (viejo.a ?? 1) : 1 };
+          if(grupo) entrada.g = grupo; else if(viejo && viejo.g) entrada.g = viejo.g;
+          lote[`catalogo/${c}/indice/${id}`] = entrada;
+          lote[`catalogo/${c}/img/${id}`] = r.src;
+          this.cache.delete(c + '/' + id);
+          nombres.set(n.toLowerCase(), id);
+          previo ? reemplazos++ : nuevos++;
+        }catch{ errores++; }
+        hechos++;
+        this.progreso(c, `Subiendo ${hechos} de ${files.length}...`);
+        if(Object.keys(lote).length >= 40) await vaciar();
+      }
+      await vaciar();
+      this.progreso(c, `Listo: ${nuevos} nuevas, ${reemplazos} reemplazadas${errores ? `, ${errores} con error` : ''}.`);
+    }catch(e){ this.progreso(c, 'No se pudo guardar: ' + e.message); }
+  },
+  async agregarLinks(c, texto){
+    const nombres = this.porNombre(c), up = {};
+    let n = 0, malas = 0;
+    for(const linea of texto.split('\n')){
+      if(!linea.trim()) continue;
+      const [nombre, url, grupo] = linea.split('|').map(x => (x || '').trim());
+      if(!nombre || !/^https?:\/\//i.test(url || '')){ malas++; continue; }
+      const id = nombres.get(nombre.toLowerCase()) || idAleatorio(10);
+      const viejo = this.indice[c][id];
+      const entrada = { n:nombre.slice(0, 50), u:url, a: viejo ? (viejo.a ?? 1) : 1 };
+      if(grupo) entrada.g = grupo; else if(viejo && viejo.g) entrada.g = viejo.g;
+      up[`catalogo/${c}/indice/${id}`] = entrada;
+      up[`catalogo/${c}/img/${id}`] = null;
+      this.cache.delete(c + '/' + id);
+      nombres.set(nombre.toLowerCase(), id); n++;
+    }
+    if(!n) return this.progreso(c, 'No encontré líneas válidas. Formato: Nombre | link | grupo');
+    try{ await this.escribir(up); this.progreso(c, `Listo: ${n} agregados${malas ? `, ${malas} líneas ignoradas` : ''}.`); return true; }
+    catch(e){ this.progreso(c, 'No se pudo guardar: ' + e.message); }
+  },
+  async cambiarTodos(c, activo){
+    const up = {};
+    for(const id in this.indice[c]) up[`catalogo/${c}/indice/${id}/a`] = activo ? 1 : 0;
+    if(!this.db){ for(const id in this.indice[c]) this.indice[c][id].a = activo ? 1 : 0; return idb.poner({ ['indice:' + c]:this.indice[c] }).then(() => this.cambio(c)); }
+    return this.db.ref().update(up);
+  },
+  async alternar(c, id){
+    const e = this.indice[c][id]; if(!e) return;
+    const a = e.a === 0 ? 1 : 0;
+    if(this.db) return this.db.ref(`catalogo/${c}/indice/${id}/a`).set(a);
+    e.a = a; await idb.poner({ ['indice:' + c]:this.indice[c] }); this.cambio(c);
+  },
+  async editar(c, id){
+    const e = this.indice[c][id]; if(!e) return;
+    const n = prompt('Nombre:', e.n); if(n === null) return;
+    const g = prompt('Grupo (déjalo vacío para ninguno):', e.g || ''); if(g === null) return;
+    const nueva = { ...e, n:n.trim().slice(0, 50) || e.n };
+    if(g.trim()) nueva.g = g.trim(); else delete nueva.g;
+    await this.escribir({ [`catalogo/${c}/indice/${id}`]:nueva });
+  },
+  async borrar(c, id){
+    const e = this.indice[c][id]; if(!e || !confirm(`¿Borrar "${e.n}" del catálogo?`)) return;
+    this.cache.delete(c + '/' + id);
+    await this.escribir({ [`catalogo/${c}/indice/${id}`]:null, [`catalogo/${c}/img/${id}`]:null });
+  },
+  async vaciar(c){
+    const total = Object.keys(this.indice[c]).length;
+    if(!total || !confirm(`¿Borrar los ${total} elementos de ${CATEGORIAS[c].nombre}? No se puede deshacer.`)) return;
+    const up = {};
+    for(const id in this.indice[c]){ up[`catalogo/${c}/indice/${id}`] = null; up[`catalogo/${c}/img/${id}`] = null; this.cache.delete(c + '/' + id); }
+    await this.escribir(up);
+  },
+  // Respaldo completo (índice + imágenes) en un archivo JSON
+  async exportar(){
+    const datos = { version:1, categorias:{} };
+    let hechos = 0;
+    const total = Object.values(this.indice).reduce((s, x) => s + Object.keys(x).length, 0);
+    for(const c in CATEGORIAS){
+      datos.categorias[c] = {};
+      for(const id in this.indice[c]){
+        const e = { ...this.indice[c][id] };
+        if(!e.u) e.img = await this.img(c, id);
+        datos.categorias[c][id] = e;
+        if(++hechos % 25 === 0) toast(`Preparando respaldo ${hechos} de ${total}`);
+      }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(datos)], { type:'application/json' }));
+    a.download = 'catalogo-bloodsitax.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast('Respaldo descargado');
+  },
+  async importar(file){
+    let datos;
+    try{ datos = JSON.parse(await file.text()); }catch{ return toast('Ese archivo no es un respaldo válido'); }
+    if(!datos || !datos.categorias) return toast('Ese archivo no es un respaldo válido');
+    if(!confirm('Esto agrega o reemplaza elementos del catálogo con los del respaldo. ¿Continuar?')) return;
+    let lote = {}, n = 0;
+    for(const c in datos.categorias){
+      if(!CATEGORIAS[c]) continue;
+      for(const id in datos.categorias[c]){
+        const { img, ...e } = datos.categorias[c][id];
+        lote[`catalogo/${c}/indice/${id}`] = e;
+        lote[`catalogo/${c}/img/${id}`] = img || null;
+        this.cache.delete(c + '/' + id);
+        if(++n % 40 === 0){ await this.escribir(lote); lote = {}; toast(`Importando ${n}...`); }
+      }
+    }
+    await this.escribir(lote);
+    toast(`Respaldo importado: ${n} elementos`);
+  },
+  visible(c){
+    const p = document.querySelector('[data-panel="catalogo"]'), sp = document.querySelector(`[data-subpanel="catalogo:${c}"]`);
+    return p && !p.hidden && sp && !sp.hidden;
+  },
+  alMostrar(){ for(const c in CATEGORIAS) if(this.visible(c)) this.pintarGrid(c); },
+  pintarInfo(c){
+    const el = document.querySelector(`[data-cat="${c}"] [data-info]`); if(!el) return;
+    const total = Object.keys(this.indice[c] || {}).length, act = this.activos(c).length;
+    el.innerHTML = `<strong>${total}</strong> en total, <strong>${act}</strong> activos`;
+  },
+  pintarGrid(c, forzar){
+    const caja = document.querySelector(`[data-cat="${c}"]`); if(!caja) return;
+    const filtro = caja.querySelector('[data-buscar]').value.trim().toLowerCase();
+    const idx = this.indice[c] || {};
+    const firma = JSON.stringify(idx) + '|' + filtro;
+    if(!forzar && this.firmas[c] === firma) return;
+    this.firmas[c] = firma;
+    const ids = Object.keys(idx).filter(id => !filtro || idx[id].n.toLowerCase().includes(filtro) || (idx[id].g || '').toLowerCase().includes(filtro))
+      .sort((a, b) => idx[a].n.localeCompare(idx[b].n, 'es', { numeric:true }));
+    const grid = caja.querySelector('[data-grid]');
+    grid.innerHTML = ids.length ? ids.map(id => {
+      const e = idx[id];
+      return `<div class="item ${e.a === 0 ? 'inactivo' : ''}" data-id="${id}">
+        <button class="item-img" data-it="alternar" title="${e.a === 0 ? 'Inactivo: clic para activar' : 'Activo: clic para desactivar'}"><img alt="" data-lazy></button>
+        <div class="item-nombre">${esc(e.n)}</div>${e.g ? `<div class="item-grupo">${esc(e.g)}</div>` : ''}
+        <div class="item-acc"><button data-it="editar">Editar</button><button data-it="borrar">Borrar</button></div>
+      </div>`;
+    }).join('') : `<p class="vacio-texto">${filtro ? 'Nada coincide con la búsqueda.' : 'Aún no hay nada aquí. Sube imágenes o agrega links.'}</p>`;
+    // Miniaturas perezosas: solo se piden las que entran en pantalla
+    if(!this.obs) this.obs = new IntersectionObserver(ents => {
+      for(const en of ents){
+        if(!en.isIntersecting) continue;
+        const img = en.target; this.obs.unobserve(img);
+        const it = img.closest('[data-id]'), cc = img.closest('[data-cat]').dataset.cat;
+        this.img(cc, it.dataset.id).then(src => { if(src) img.src = src; });
+      }
+    }, { rootMargin:'200px' });
+    grid.querySelectorAll('img[data-lazy]').forEach(i => this.obs.observe(i));
+  }
+};
+
+function bloqueCatalogo(){
+  const cats = Object.keys(CATEGORIAS);
+  return `<div class="cat-barra">
+      <button class="btn" id="exportarCat">Descargar respaldo</button>
+      <label class="btn archivo">Importar respaldo<input type="file" id="importarRespaldo" accept="application/json,.json"></label>
+    </div>
+    <div class="tabs subtabs" role="tablist">${cats.map((c, j) => `<button class="tab" role="tab" data-subtab="catalogo:${c}" aria-selected="${j === 0}">${CATEGORIAS[c].nombre}</button>`).join('')}</div>
+    ${cats.map((c, j) => `<div data-subpanel="catalogo:${c}" data-cat="${c}" ${j ? 'hidden' : ''}>
+      <div class="tarjeta cat-agregar">
+        <div class="form-fila">
+          <input class="campo" data-grupo-subida maxlength="30" placeholder="Grupo para estas imágenes (opcional)">
+          <label class="btn principal archivo">Subir imágenes<input type="file" multiple accept="image/*" data-subir></label>
+        </div>
+        <p class="nota" data-progreso>El nombre sale del nombre del archivo. Si ya existe, se reemplaza su imagen.</p>
+        <details>
+          <summary>Agregar por links</summary>
+          <textarea class="lista" data-links placeholder="Una línea por elemento: Nombre | link de la imagen | grupo (opcional)"></textarea>
+          <button class="btn" data-act-cat="links">Agregar links</button>
+        </details>
+      </div>
+      <div class="cat-herr">
+        <span class="cat-info" data-info></span>
+        <input class="campo" type="search" data-buscar placeholder="Buscar por nombre o grupo">
+      </div>
+      <div class="acciones chicas">
+        <button class="btn" data-act-cat="todos">Activar todos</button>
+        <button class="btn" data-act-cat="ninguno">Desactivar todos</button>
+        <button class="btn quitar" data-act-cat="vaciar">Vaciar categoría</button>
+      </div>
+      <div class="cat-grid" data-grid></div>
+    </div>`).join('')}`;
+}
+
+/* ---------- Acciones ---------- */
+function posRapida(id, n){
+  const e = estado[id], col = n % 3, fil = Math.floor(n / 3);
+  const hw = e.w * e.escala / 2, hh = e.h * e.escala / 2;
+  update(id, {
+    x: Math.round([MARGEN + hw, ANCHO / 2, ANCHO - MARGEN - hw][col]),
+    y: Math.round([MARGEN + hh, ALTO / 2, ALTO - MARGEN - hh][fil])
+  });
+}
+function accion(id, act){
+  const d = ELEMENTOS[id] || {};
+  switch(act){
+    case 'lanzar': return update(id, { visible:true, datos:{ accion:d.accion, t:Date.now() } });
+    case 'tirar': return tirar(id);
+    case 'mostrar': return update(id, { visible:true });
+    case 'ocultar': return update(id, { visible:false });
+    case 'girar': return girar(id);
+    case 'mezclar': return mezclarLista(id);
+    case 'quitarGanador': return quitarGanador(id);
+    case 'eliminar': return eliminarImagen(id);
+    case 'centrar': return update(id, { x:ANCHO / 2, y:ALTO / 2 });
+    case 'frente': return update(id, { capa: Math.min(50, Math.max(...Object.values(estado).map(o => o.capa || 1)) + 1) });
+    case 'fondo':
+      for(const o in estado) if(o !== id) update(o, { capa: Math.min(50, (estado[o].capa || 1) + 1) });
+      return update(id, { capa:1 });
+    case 'reset': {
+      const p = ELEMENTOS[id] ? porDefecto(id) : { x:ANCHO / 2, y:ALTO / 2 };
+      return update(id, { x:p.x, y:p.y, escala:1, rot:0, opacidad:1, capa:1 });
+    }
+  }
+}
+
+function eventos(){
+  $('#tabs').addEventListener('click', ev => { const b = ev.target.closest('[data-tab]'); if(b) activarTab(b.dataset.tab); });
+  const cont = $('#paneles');
+  cont.addEventListener('click', ev => {
+    const sub = ev.target.closest('[data-subtab]'); if(sub) return activarSub(sub.dataset.subtab);
+    if(ev.target.closest('#btnAgregar')){
+      const f = $('#formAgregar'); f.hidden = !f.hidden;
+      $('#btnAgregar').setAttribute('aria-expanded', String(!f.hidden));
+      return;
+    }
+    if(ev.target.closest('#agregarUrl')) return manejarImagen(desdeLink($('#urlImg').value.trim()), 'Imagen', 'link');
+    if(ev.target.closest('#exportarCat')) return Cat.exportar();
+    const caja = ev.target.closest('[data-cat]');
+    if(caja){
+      const c = caja.dataset.cat;
+      const ac = ev.target.closest('[data-act-cat]');
+      if(ac){
+        const k = ac.dataset.actCat;
+        if(k === 'links') return Cat.agregarLinks(c, caja.querySelector('[data-links]').value).then(ok => { if(ok) caja.querySelector('[data-links]').value = ''; });
+        if(k === 'todos') return Cat.cambiarTodos(c, true);
+        if(k === 'ninguno') return Cat.cambiarTodos(c, false);
+        if(k === 'vaciar') return Cat.vaciar(c);
+      }
+      const it = ev.target.closest('[data-it]');
+      if(it){
+        const id = it.closest('[data-id]').dataset.id, k = it.dataset.it;
+        if(k === 'alternar') return Cat.alternar(c, id);
+        if(k === 'editar') return Cat.editar(c, id);
+        if(k === 'borrar') return Cat.borrar(c, id);
+      }
+      return;
+    }
+    const t = ev.target.closest('.tarjeta[data-el]'); if(!t) return;
+    const id = t.dataset.el;
+    const a = ev.target.closest('[data-act]'); if(a) return accion(id, a.dataset.act);
+    const p = ev.target.closest('[data-pos]'); if(p) return posRapida(id, +p.dataset.pos);
+    const s = ev.target.closest('[data-signo]'); if(s) return update(id, { visible:true, datos:{ signo:s.dataset.signo, t:Date.now() } });
+  });
+  cont.addEventListener('change', ev => {
+    const sel = ev.target.closest('[data-opc]');
+    if(sel){
+      const id = sel.closest('.tarjeta').dataset.el, k = sel.dataset.opc;
+      const v = k === 'grupo' ? sel.value : Number(sel.value);
+      return update(id, { opc:{ ...(estado[id].opc || {}), [k]:v } });
+    }
+    const sub = ev.target.closest('[data-subir]');
+    if(sub){
+      const c = sub.closest('[data-cat]').dataset.cat, files = [...sub.files];
+      const grupo = sub.closest('[data-cat]').querySelector('[data-grupo-subida]').value.trim();
+      sub.value = '';
+      return Cat.subir(c, files, grupo);
+    }
+    if(ev.target.id === 'importarRespaldo'){
+      const f = ev.target.files[0]; ev.target.value = '';
+      if(f) Cat.importar(f);
+      return;
+    }
+    if(ev.target.id !== 'archivoImg') return;
+    const f = ev.target.files[0]; ev.target.value = '';
+    if(f) manejarImagen(procesarArchivo(f), nombreDeArchivo(f), 'archivo');
+  });
+  cont.addEventListener('pointerdown', ev => { const t = ev.target.closest('.tarjeta[data-el]'); if(t && seleccionado !== t.dataset.el) seleccionar(t.dataset.el, false); });
+  cont.addEventListener('input', ev => {
+    const bus = ev.target.closest('[data-buscar]');
+    if(bus){ clearTimeout(bus._t); bus._t = setTimeout(() => Cat.pintarGrid(bus.closest('[data-cat]').dataset.cat), 200); return; }
+    const ta = ev.target.closest('[data-lista]');
+    if(ta){
+      const id = ta.closest('.tarjeta').dataset.el, ops = leerLista(ta.value);
+      ta.closest('.tarjeta').querySelector('[data-conteo]').textContent = textoConteo(ops.length);
+      clearTimeout(ta._t);
+      ta._t = setTimeout(() => cambiarLista(id, ops), 350);
+      return;
+    }
+    const inp = ev.target.closest('[data-campo]'); if(!inp) return;
+    const id = inp.closest('.tarjeta').dataset.el, c = inp.dataset.campo;
+    let v = Number(inp.value); if(inp.value === '' || Number.isNaN(v)) return;
+    v = clamp(v, Number(inp.min), Number(inp.max));
+    if(c === 'escala' || c === 'opacidad') v = v / 100;
+    update(id, { [c]: v });
+  });
+
+  // Pegar una imagen con Ctrl+V cuando la pestaña Random está abierta
+  document.addEventListener('paste', ev => {
+    if($('[data-panel="random"]').hidden) return;
+    const item = [...(ev.clipboardData ? ev.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
+    if(!item) return;
+    ev.preventDefault();
+    $('#formAgregar').hidden = false;
+    manejarImagen(procesarArchivo(item.getAsFile()), 'Imagen pegada', 'archivo');
+  });
+
+  // Arrastrar y redimensionar en el escenario
+  $('#cajas').addEventListener('pointerdown', ev => {
+    const c = ev.target.closest('.caja'); if(!c) return;
+    ev.preventDefault();
+    const id = c.dataset.el, e = estado[id];
+    seleccionar(id, true);
+    const f = ANCHO / $('#escenario').getBoundingClientRect().width;
+    const ini = { px:ev.clientX, py:ev.clientY, x:e.x, y:e.y, esc:e.escala };
+    const redim = ev.target.classList.contains('tirador');
+    c.setPointerCapture(ev.pointerId); c.classList.add('arrastrando');
+    const mover = m => {
+      const dx = (m.clientX - ini.px) * f, dy = (m.clientY - ini.py) * f;
+      if(redim){
+        const delta = (dx + dy * (e.w / e.h)) / 2;
+        update(id, { escala: +clamp((e.w * ini.esc + delta * 2) / e.w, .1, 3).toFixed(3) });
+      } else update(id, { x: Math.round(clamp(ini.x + dx, 0, ANCHO)), y: Math.round(clamp(ini.y + dy, 0, ALTO)) });
+    };
+    const fin = () => {
+      c.removeEventListener('pointermove', mover); c.removeEventListener('pointerup', fin); c.removeEventListener('pointercancel', fin);
+      c.classList.remove('arrastrando');
+    };
+    c.addEventListener('pointermove', mover); c.addEventListener('pointerup', fin); c.addEventListener('pointercancel', fin);
+  });
+
+  document.addEventListener('keydown', ev => {
+    if(!seleccionado || !estado[seleccionado] || /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+    const paso = ev.shiftKey ? 10 : 1, e = estado[seleccionado];
+    const m = { ArrowLeft:[-paso,0], ArrowRight:[paso,0], ArrowUp:[0,-paso], ArrowDown:[0,paso] }[ev.key];
+    if(!m) return;
+    ev.preventDefault();
+    update(seleccionado, { x: clamp(e.x + m[0], 0, ANCHO), y: clamp(e.y + m[1], 0, ALTO) });
+  });
+
+  $('#ocultarTodo').addEventListener('click', () => { for(const id in estado) if(estado[id].visible) update(id, { visible:false }); toast('Todo oculto'); });
+  $('#verOcultos').addEventListener('change', pintarCajas);
+  $('#verPrevia').addEventListener('change', recargarPrevia);
+
+  // Link del overlay
+  $('#generarLink').addEventListener('click', () => { $('#linkOverlay').value = urlOverlay(); notaLink(); toast('Link generado'); });
+  $('#fondoVerde').addEventListener('change', () => { if($('#linkOverlay').value) $('#linkOverlay').value = urlOverlay(); });
+  $('#guias').addEventListener('change', () => { if($('#linkOverlay').value) $('#linkOverlay').value = urlOverlay(); });
+  $('#copiarLink').addEventListener('click', () => { if(!$('#linkOverlay').value) $('#linkOverlay').value = urlOverlay(); copiar($('#linkOverlay').value, 'Link copiado'); });
+  $('#abrirLink').addEventListener('click', () => window.open(urlOverlay(), '_blank'));
+  $('#descargarOverlay').addEventListener('click', descargarOverlay);
+
+  // Configuración
+  $('#copiarReglas').addEventListener('click', () => copiar($('#reglas').textContent, 'Reglas copiadas'));
+  $('#cerrarSesion').addEventListener('click', () => firebase.auth().signOut());
+  $('#formLogin').addEventListener('submit', ev => {
+    ev.preventDefault();
+    $('#errorLogin').textContent = '';
+    firebase.auth().signInWithEmailAndPassword($('#correo').value.trim(), $('#clave').value)
+      .catch(() => $('#errorLogin').textContent = 'Correo o contraseña incorrectos.');
+  });
+
+  new ResizeObserver(() => { $('#previa').style.transform = `scale(${$('#escenario').clientWidth / ANCHO})`; }).observe($('#escenario'));
+
+  // Mientras una ruleta gira, el panel actualiza su estado ("Girando..." y luego el ganador)
+  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta') pintarTarjeta(id); }, 500);
+}
+
+/* ---------- Link, descarga y utilidades ---------- */
+function urlOverlay(previa){
+  const u = new URL('overlay.html', location.href);
+  u.search = ''; u.hash = '';
+  if(PRUEBA) u.searchParams.set('sala', sala);
+  if(previa) u.searchParams.set('previa', '1');
+  else {
+    if($('#fondoVerde').checked) u.searchParams.set('fondo', 'verde');
+    if($('#guias').checked) u.searchParams.set('guias', '1');
+  }
+  return u.href;
+}
+function notaLink(){
+  $('#notaLink').textContent = location.protocol === 'file:'
+    ? 'Estás abriendo el panel desde tu PC: este link solo sirve para probar aquí. Súbelo a GitHub Pages para tener el link definitivo.'
+    : Sync.modo === 'local'
+      ? 'Modo local: el overlay solo responde en este mismo navegador. Configura Firebase para usarlo en OBS de otra PC.'
+      : 'Este link no cambia. Pégalo una sola vez como Browser Source de 1920 x 1080 en OBS.';
+}
+function recargarPrevia(){ $('#previa').src = $('#verPrevia').checked ? urlOverlay(true) : 'about:blank'; }
+async function descargarOverlay(){
+  try{
+    const r = await fetch(new URL('overlay.html', location.href));
+    if(!r.ok) throw 0;
+    let html = await r.text();
+    const snapshot = {};
+    for(const id in ELEMENTOS) snapshot[id] = { ...estado[id], visible:false, datos:null };
+    const bloque = `/*CONFIG-BEGIN*/\nconst FIREBASE_CONFIG = ${JSON.stringify(FIREBASE_CONFIG, null, 2)};\nconst SALA_FIJA = ${JSON.stringify(SALA_FIJA)};\nconst ESTADO_INICIAL = ${JSON.stringify(snapshot)};\n/*CONFIG-END*/`;
+    html = html.replace(/\/\*CONFIG-BEGIN\*\/[\s\S]*?\/\*CONFIG-END\*\//, bloque);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([html], { type:'text/html' }));
+    a.download = 'overlay.html'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Overlay descargado con tu configuración');
+  }catch{
+    toast('Para descargar, abre el panel desde GitHub Pages o un servidor local');
+  }
+}
+function copiar(texto, msg){
+  (navigator.clipboard ? navigator.clipboard.writeText(texto) : Promise.reject())
+    .then(() => toast(msg))
+    .catch(() => { const t = document.createElement('textarea'); t.value = texto; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); toast(msg); });
+}
+function pintarConfig(){
+  $('#marcaPrueba').hidden = !PRUEBA;
+  $('#uid').textContent = Sync.uid || 'sin sesión';
+  $('#cerrarSesion').hidden = !Sync.uid;
+  $('#modoTexto').textContent = Sync.modo === 'firebase'
+    ? 'Modo Firebase: el overlay se actualiza en cualquier PC con el link.'
+    : 'Modo local: falta pegar la configuración de Firebase al inicio de panel.html y overlay.html.';
+  $('#salaTexto').innerHTML = PRUEBA
+    ? `<span>Sala de pruebas: <code>${esc(sala)}</code>. Lo que hagas aquí no sale en el stream.</span> <a href="${location.pathname}">Volver a la sala real</a>`
+    : `<span>Sala fija: <code>${esc(sala)}</code>. Es la misma en cualquier navegador.</span> <a href="${location.pathname}?prueba=1">Abrir panel de pruebas</a>`;
+  const escritura = `auth != null && auth.uid === '${Sync.uid || 'PEGA_AQUI_TU_UID'}'`;
+  $('#reglas').textContent = JSON.stringify({ rules:{
+    overlay:{ $sala:{ '.read': true, '.write': escritura } },
+    catalogo:{ '.read': true, '.write': escritura }
+  } }, null, 2);
+}
+let toastTimer;
+function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('ver'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('ver'), 2400); }
+
+construir();
+eventos();
+pintarRandom(true);
+pintarTodo();
+Sync.iniciar();
+notaLink();
+</script>
+</body>
+</html>
