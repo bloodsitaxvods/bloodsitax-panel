@@ -339,7 +339,7 @@ function dibujarHoroscopo(c, e){
     h.compat ? `<span><b>Compatible con</b>${esc(h.compat)}</span>` : ''
   ].join('');
   c.innerHTML = `<div class="horo">
-    <div class="horo-cab"><div><div class="horo-signo">${esc(d.signo)}</div>${d.fecha ? `<div class="horo-fecha">${esc(fechaBonita(d.fecha))}</div>` : ''}</div>
+    <div class="horo-cab"><div><div class="horo-signo">${esc(d.signo)}</div></div>
       ${h.clave ? `<div class="horo-clave">${esc(h.clave)}</div>` : ''}</div>
     ${h.general ? `<p class="horo-general">${esc(h.general)}</p>` : ''}
     <div class="horo-grid">${sec('Amor', h.amor)}${sec('Dinero y trabajo', h.dinero)}${sec('Salud', h.salud)}</div>
