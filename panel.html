@@ -70,6 +70,8 @@ a{color:var(--rosa)}
 .signos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
 .signo{padding:7px 4px;font-size:13px}
 .signo.activo{background:var(--neon);border-color:var(--neon)}
+.horo-carga{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--linea)}
+.horo-carga .nota{margin:0}
 
 /* Lista de la ruleta */
 .lista{width:100%;min-height:150px;resize:vertical;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.5}
@@ -282,7 +284,7 @@ const ELEMENTOS = {
   'sorteo-ruleta':       { nombre:'Ruleta de sorteo',   tipo:'ruleta',           w:760,  h:760, x:960,  y:540 },
   'retos-ruleta-chica':  { nombre:'Ruleta pequeña',     accion:'Ruleta pequeña', w:440,  h:440, x:1640, y:780 },
   'retos-ruleta-grande': { nombre:'Ruleta grande',      accion:'Ruleta grande',  w:820,  h:820, x:960,  y:540 },
-  'horoscopo':           { nombre:'Horóscopo',          signos:true,             w:760,  h:420, x:1480, y:300 }
+  'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 }
 };
 const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
 const PESTANAS = [
@@ -385,6 +387,7 @@ const Sync = {
       }catch{}
       conexion(true, 'Modo local: solo funciona en este navegador');
       Cat.iniciarLocal();
+      Horo.iniciarLocal();
       this.guardarLocal();
       pintarRandom(true);
       pintarTodo();
@@ -402,12 +405,13 @@ const Sync = {
       for(const id in ELEMENTOS){
         const p = porDefecto(id);
         if(!v[id]) up[id] = p;
-        else if(v[id].tipo !== p.tipo) up[`${id}/tipo`] = p.tipo;
+        else if(v[id].tipo !== p.tipo){ up[`${id}/tipo`] = p.tipo; up[`${id}/w`] = p.w; up[`${id}/h`] = p.h; }
       }
       if(Object.keys(up).length) ref.update(up).catch(e => toast('No se pudo preparar la sala: ' + e.message));
     });
     ref.on('value', s => aplicarRemoto(s.val() || {}), () => conexion(false, 'Sin permiso: revisa las reglas de Firebase'));
     Cat.conectar(db);
+    Horo.conectar(db);
     this.raiz.child('imagenes').on('value', s => { imagenes = s.val() || {}; pintarRandom(true); });
     db.ref('.info/connected').on('value', s => conexion(!!s.val(), s.val() ? 'Conectado a Firebase' : 'Reconectando'));
   },
@@ -529,7 +533,11 @@ function tarjeta(id){
       </div>`;
   } else if(d.signos){
     cuerpo = `<div class="signos">${SIGNOS.map(s => `<button class="btn signo" data-signo="${s}">${s}</button>`).join('')}</div>
-      <div class="acciones"><button class="btn" data-act="ocultar">Ocultar</button></div>`;
+      <div class="acciones"><button class="btn" data-act="ocultar">Ocultar</button></div>
+      <div class="horo-carga">
+        <label class="btn principal archivo">Subir horóscopo del día<input type="file" accept=".json,application/json" data-horo-archivo></label>
+        <p class="nota" data-horo-estado>Aún no hay horóscopo cargado.</p>
+      </div>`;
   } else {
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="lanzar">${d.accion}</button><button class="btn" data-act="ocultar">Ocultar</button></div>`;
   }
@@ -1155,6 +1163,57 @@ function bloqueCatalogo(){
     </div>`).join('')}`;
 }
 
+/* ---------- Horóscopo ---------- */
+// Convierte el JSON del generador a un formato compacto por signo.
+// Acepta una lista de signos o un objeto con la lista adentro.
+const sinAcentos = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+function convertirHoroscopo(json){
+  const lista = Array.isArray(json) ? json : (json && (json.horoscopos || json.signos || Object.values(json).find(Array.isArray))) || [];
+  const signos = {};
+  let fecha = '';
+  for(const it of lista){
+    const nombre = SIGNOS.find(s => sinAcentos(s) === sinAcentos(it && it.signo));
+    if(!nombre) continue;
+    const p = it.predicciones || {}, ds = it.datos_suerte || {};
+    signos[nombre] = {
+      general: String(p.general || ''), amor: String(p.amor || ''),
+      dinero: String(p.dinero_y_trabajo || p.dinero || ''), salud: String(p.salud || ''),
+      numeros: (Array.isArray(ds.numeros) ? ds.numeros : []).slice(0, 6).map(String),
+      color: String(ds.color || ''), compat: String(ds.mejor_compatibilidad || ''), clave: String(ds.palabra_clave || '')
+    };
+    if(!fecha && it.fecha) fecha = String(it.fecha);
+  }
+  if(!Object.keys(signos).length) throw new Error('El archivo no tiene signos reconocibles.');
+  return { fecha, actualizado: Date.now(), signos };
+}
+const Horo = {
+  datos:null, db:null,
+  conectar(db){ this.db = db; db.ref(`overlay/${sala}/horoscopo`).on('value', s => { this.datos = s.val(); this.pintar(); }); },
+  iniciarLocal(){ try{ this.datos = JSON.parse(leerLS('bsx-horoscopo-' + sala) || 'null'); }catch{} this.pintar(); },
+  async cargar(file){
+    const est = document.querySelector('[data-horo-estado]');
+    try{
+      const d = convertirHoroscopo(JSON.parse(await file.text()));
+      if(this.db) await this.db.ref(`overlay/${sala}/horoscopo`).set(d);
+      else guardarLS('bsx-horoscopo-' + sala, JSON.stringify(d));
+      this.datos = d; this.pintar();
+      toast(`Horóscopo cargado: ${Object.keys(d.signos).length} signos`);
+    }catch(e){
+      if(est) est.textContent = e instanceof SyntaxError ? 'Ese archivo no es un JSON válido.' : e.message;
+    }
+  },
+  pintar(){
+    const est = document.querySelector('[data-horo-estado]'); if(!est) return;
+    const d = this.datos, n = d && d.signos ? Object.keys(d.signos).length : 0;
+    if(!n) est.textContent = 'Aún no hay horóscopo cargado.';
+    else {
+      const sub = new Date(d.actualizado || 0);
+      est.textContent = `Cargado: ${n} signos, fecha del archivo ${d.fecha || 'sin fecha'}. Subido el ${sub.toLocaleDateString('es-MX')} a las ${sub.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' })}`;
+    }
+    document.querySelectorAll('[data-signo]').forEach(b => b.disabled = !(d && d.signos && d.signos[b.dataset.signo]));
+  }
+};
+
 /* ---------- Acciones ---------- */
 function posRapida(id, n){
   const e = estado[id], col = n % 3, fil = Math.floor(n / 3);
@@ -1223,7 +1282,12 @@ function eventos(){
     const id = t.dataset.el;
     const a = ev.target.closest('[data-act]'); if(a) return accion(id, a.dataset.act);
     const p = ev.target.closest('[data-pos]'); if(p) return posRapida(id, +p.dataset.pos);
-    const s = ev.target.closest('[data-signo]'); if(s) return update(id, { visible:true, datos:{ signo:s.dataset.signo, t:Date.now() } });
+    const s = ev.target.closest('[data-signo]');
+    if(s){
+      const h = Horo.datos && Horo.datos.signos && Horo.datos.signos[s.dataset.signo];
+      if(!h) return toast('No hay horóscopo cargado para ' + s.dataset.signo);
+      return update(id, { visible:true, datos:{ signo:s.dataset.signo, fecha:Horo.datos.fecha || '', h, t:Date.now() } });
+    }
   });
   cont.addEventListener('change', ev => {
     const sel = ev.target.closest('[data-opc]');
@@ -1238,6 +1302,11 @@ function eventos(){
       const grupo = sub.closest('[data-cat]').querySelector('[data-grupo-subida]').value.trim();
       sub.value = '';
       return Cat.subir(c, files, grupo);
+    }
+    if(ev.target.matches('[data-horo-archivo]')){
+      const f = ev.target.files[0]; ev.target.value = '';
+      if(f) Horo.cargar(f);
+      return;
     }
     if(ev.target.id === 'importarRespaldo'){
       const f = ev.target.files[0]; ev.target.value = '';
