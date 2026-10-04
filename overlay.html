@@ -96,6 +96,42 @@ body.guias .el{outline:3px dashed #FF007F}
 .sin-nombres-perk .nombre.perk{visibility:hidden}
 .carta.lista .nombre{opacity:1;transform:none}
 
+/* Votación de killer */
+.vot{width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.vot .tirada{height:auto}
+.vot-cab{display:flex;align-items:center;gap:18px;min-height:96px}
+.reloj{position:relative;width:92px;height:92px;display:none;flex:none}
+.fase-votando .reloj{display:block}
+.reloj svg{width:100%;height:100%;transform:rotate(-90deg)}
+.reloj circle{fill:none;stroke-width:8}
+.reloj .pista{fill:rgba(13,13,13,.92);stroke:rgba(255,194,220,.3)}
+.reloj .avance{stroke:#FF007F;stroke-linecap:round;stroke-dasharray:251.33;stroke-dashoffset:0}
+@keyframes cuenta{to{stroke-dashoffset:251.33}}
+.reloj span{position:absolute;inset:0;display:grid;place-items:center;font-size:40px;font-weight:800;color:#FFFFFF}
+.reloj.urgente span{color:#FFC2DC;animation:latidoNum 1s ease-in-out infinite}
+@keyframes latidoNum{50%{transform:scale(1.15)}}
+.vot-estado{font-size:34px;font-weight:800;color:#FFFFFF;background:rgba(13,13,13,.92);border:3px solid #FF007F;border-radius:999px;padding:10px 30px;
+  box-shadow:0 0 24px rgba(255,0,127,.45)}
+.fase-ganador .vot-estado{background:#FF007F;border-color:#FFC2DC}
+.letra{position:absolute;top:8px;left:8px;z-index:4;width:24%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  background:#FF007F;color:#FFFFFF;font-weight:800;box-shadow:0 0 0 3px #FFC2DC, 0 4px 10px rgba(0,0,0,.6)}
+.voto{width:100%;margin-top:12px;display:flex;align-items:center;gap:10px}
+.sin-votos .pct small{display:none}
+.barra{flex:1;height:14px;border-radius:999px;background:rgba(13,13,13,.88);border:2px solid rgba(255,194,220,.55);overflow:hidden}
+.barra i{display:block;height:100%;background:linear-gradient(90deg,#FF007F,#FFC2DC);transform-origin:left center;transform:scaleX(0);transition:transform .45s ease}
+.pct{min-width:3.6em;text-align:right;font-size:26px;font-weight:800;color:#FFFFFF;line-height:1;text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)}
+.pct small{display:block;margin-top:3px;font-size:.5em;font-weight:700;color:#FFC2DC}
+.vot .carta{transition:filter .12s, transform .15s ease-out}
+.fase-ganador .carta{transition:filter .4s, transform .5s cubic-bezier(.2,1.5,.4,1)}
+.vot .carta.apagada{filter:grayscale(.85) brightness(.4)}
+.fase-desempate .carta:not(.luz):not(.apagada){filter:brightness(.55)}
+.vot .carta.empata .marco{border-color:#FFFFFF;animation:latido 1.1s ease-in-out infinite}
+@keyframes latido{50%{box-shadow:0 0 0 3px #FF007F, 0 0 36px rgba(255,0,127,.85)}}
+.vot .carta.luz{filter:none;transform:scale(1.05)}
+.vot .carta.luz .marco{border-color:#FFFFFF;box-shadow:0 0 0 4px #FF007F, 0 0 48px rgba(255,255,255,.9)}
+.vot .carta.gana{transform:translateY(-14px) scale(1.07)}
+.vot .carta.gana .marco{border-color:#FFFFFF;box-shadow:inset 0 0 0 3px #FF007F, 0 0 0 4px #FF007F, 0 0 60px rgba(255,0,127,.95)}
+
 /* Horóscopo */
 .horo{--k:1;position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:calc(var(--k)*18px);
   padding:calc(var(--k)*34px) calc(var(--k)*38px);color:#FFFFFF;border-radius:34px;
@@ -327,16 +363,19 @@ function actualizarTirada(c, e){
   // Cambio de una sola carta desde el panel
   lista(d.cartas).forEach((k, i) => { const r = k.r || 0; if(r !== st.rs[i]){ st.rs[i] = r; regirar(cont, i, k, st); } });
 }
-async function armarTirada(cont, e, d, tok, st){
+async function armarTirada(cont, e, d, tok, st, modo){
+  const vot = modo === 'vot';
   const cartas = lista(d.cartas), PAD = 28, GAP = 26;
   const escalas = cartas.map(k => k.p ? ESC_PERK : 1), suma = escalas.reduce((a, b) => a + b, 0);
   let W = (e.w - PAD * 2 - GAP * (cartas.length - 1)) / suma;
-  W = Math.min(W, (e.h - PAD * 2) / (PROP + .34), 360);
+  W = Math.min(W, (e.h - PAD * 2 - (vot ? 200 : 0)) / (PROP + .34), 360);
   const fsP = Math.max(14, Math.round(W * .115)), fsK = Math.max(12, Math.round(W * ESC_PERK * .075));
   cont.style.gap = GAP + 'px';
   cont.innerHTML = cartas.map((k, i) => {
     const w = W * escalas[i], h = w * PROP;
-    return `<div class="carta${k.p ? ' es-perk' : ''}" style="width:${w}px"><div class="marco" style="height:${h}px"><div class="ventana"><div class="tira">${cuadrosHTML(framesDe(k), h)}</div></div></div>${nombreHTML(k, fsP, fsK)}</div>`;
+    const letra = vot ? `<div class="letra" style="font-size:${Math.round(w * .13)}px">${'ABCD'[i] || ''}</div>` : '';
+    const voto = vot ? '<div class="voto"><div class="barra"><i></i></div><div class="pct">0%</div></div>' : '';
+    return `<div class="carta${k.p ? ' es-perk' : ''}" style="width:${w}px"><div class="marco" style="height:${h}px"><div class="ventana"><div class="tira">${cuadrosHTML(framesDe(k), h)}</div></div>${letra}</div>${nombreHTML(k, fsP, fsK)}${voto}</div>`;
   }).join('');
   const els = [...cont.querySelectorAll('.carta')];
   // Precarga solo las imágenes de esta tirada
@@ -371,6 +410,95 @@ function liberarTirada(c){
     while(t.children.length > 1) t.firstElementChild.remove();
     t.style.transition = 'none'; t.style.transform = 'none';
   });
+}
+
+/* ---------- Votación de killer ---------- */
+const LETRAS = 'ABCD', VUELTA_RELOJ = 251.33; // perímetro del círculo del temporizador (r = 40)
+function crearVotacion(c){
+  c.innerHTML = `<div class="vot fase-listo">
+    <div class="vot-cab">
+      <div class="reloj"><svg viewBox="0 0 92 92" aria-hidden="true"><circle class="pista" cx="46" cy="46" r="40"/><circle class="avance" cx="46" cy="46" r="40"/></svg><span>0</span></div>
+      <div class="vot-estado">Votación de killer</div>
+    </div>
+    <div class="tirada vot-cartas"></div>
+  </div>`;
+  c._vot = { tir:{ clave:null, token:0, timers:[], rs:[] }, fin:0, seg:0, des:'', desTimers:[] };
+}
+function actualizarVotacion(c, e){
+  const st = c._vot, tir = st.tir, cont = c.querySelector('.vot-cartas'), d = e.datos;
+  const clave = d && d.cartas ? d.t : 0;
+  if(clave !== tir.clave){
+    tir.clave = clave; tir.token++;
+    tir.timers.forEach(clearTimeout); tir.timers = [];
+    if(!clave){ cont.innerHTML = ''; tir.rs = []; }
+    else { tir.rs = lista(d.cartas).map(k => k.r || 0); armarTirada(cont, e, d, tir.token, tir, 'vot'); }
+  } else if(clave){
+    lista(d.cartas).forEach((k, i) => { const r = k.r || 0; if(r !== tir.rs[i]){ tir.rs[i] = r; regirar(cont, i, k, tir); } });
+  }
+  c.firstChild.classList.toggle('sin-votos', !!(e.opc && e.opc.verVotos === false));
+  aplicarVoto(c, st, e.vot || { fase:'listo' });
+}
+function aplicarVoto(c, st, v){
+  const raiz = c.firstChild, cartas = [...c.querySelectorAll('.vot-cartas .carta')];
+  for(const f of ['listo','votando','empate','desempate','ganador']) raiz.classList.toggle('fase-' + f, (v.fase || 'listo') === f);
+  const votos = v.votos || {}, tot = LETRAS.split('').reduce((s, l) => s + (votos[l] || 0), 0);
+  cartas.forEach((el, i) => {
+    const n = votos[LETRAS[i]] || 0, pct = tot ? Math.round(n * 100 / tot) : 0;
+    const barra = el.querySelector('.barra i'), p = el.querySelector('.pct');
+    if(barra) barra.style.transform = `scaleX(${tot ? n / tot : 0})`;
+    if(p) p.innerHTML = `${pct}%<small>${n} ${n === 1 ? 'voto' : 'votos'}</small>`;
+    const emp = lista(v.empatados), desL = v.des ? lista(v.des.lista) : [];
+    el.classList.toggle('gana', v.fase === 'ganador' && v.ganador === i);
+    el.classList.toggle('empata', v.fase === 'empate' && emp.includes(i));
+    el.classList.toggle('apagada',
+      (v.fase === 'ganador' && v.ganador !== i) || (v.fase === 'empate' && !emp.includes(i)) || (v.fase === 'desempate' && !desL.includes(i)));
+  });
+  const texto = { listo:'Votación de killer', votando:'Vota en el chat: A, B, C o D', empate:'Empate', desempate:'Desempate', ganador:'Ganador' }[v.fase] || 'Votación de killer';
+  raiz.querySelector('.vot-estado').textContent = texto;
+
+  // Temporizador: el círculo se anima solo con CSS y el número se actualiza 4 veces por segundo
+  const reloj = raiz.querySelector('.reloj'), num = reloj.querySelector('span'), arco = reloj.querySelector('.avance');
+  if(v.fase === 'votando'){
+    if(st.fin !== v.fin){
+      st.fin = v.fin;
+      const dur = v.dur || 20000, pasado = Math.min(dur, Math.max(0, dur - (v.fin - ahora())));
+      arco.style.animation = 'none'; void arco.getBoundingClientRect();
+      arco.style.animation = `cuenta ${dur}ms linear ${-pasado}ms forwards`;
+      clearInterval(st.seg);
+      const pintarSeg = () => {
+        const s = Math.max(0, Math.ceil((v.fin - ahora()) / 1000));
+        num.textContent = s;
+        reloj.classList.toggle('urgente', s <= 5);
+        if(s <= 0) clearInterval(st.seg);
+      };
+      pintarSeg(); st.seg = setInterval(pintarSeg, 250);
+    }
+  } else { clearInterval(st.seg); st.fin = 0; }
+
+  // Desempate: una luz salta entre los empatados, cada vez más lento, y frena en el ganador
+  if(v.fase === 'desempate' && v.des){
+    const clave = `${v.des.inicio}:${v.des.ganador}`;
+    if(st.des !== clave){ st.des = clave; luzDesempate(cartas, v.des, st); }
+  } else if(v.fase !== 'ganador'){ st.desTimers.forEach(clearTimeout); st.desTimers = []; st.des = ''; cartas.forEach(el => el.classList.remove('luz')); }
+  else cartas.forEach(el => el.classList.remove('luz'));
+}
+function luzDesempate(cartas, des, st){
+  st.desTimers.forEach(clearTimeout); st.desTimers = [];
+  const lst = lista(des.lista), L = lst.length, pos = lst.indexOf(des.ganador);
+  const tiempos = [];
+  for(let t = 0, paso = 60; t < des.dur; t += paso, paso *= 1.12) tiempos.push(t);
+  const N = tiempos.length;
+  const prender = i => cartas.forEach((el, j) => el.classList.toggle('luz', j === i));
+  tiempos.forEach((t, k) => {
+    const idx = lst[(((pos - (N - 1 - k)) % L) + L) % L];
+    const espera = des.inicio + t - ahora();
+    if(espera >= 0) st.desTimers.push(setTimeout(() => prender(idx), espera));
+  });
+  const final = des.inicio + des.dur - ahora();
+  st.desTimers.push(setTimeout(() => {
+    prender(-1);
+    cartas.forEach((el, j) => { el.classList.toggle('gana', j === des.ganador); el.classList.toggle('apagada', j !== des.ganador); });
+  }, Math.max(0, final)));
 }
 
 /* ---------- Horóscopo ---------- */
@@ -416,7 +544,8 @@ const TIPOS = {
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
-  tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada }
+  tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
+  votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada }
 };
 
 const nodos = {}, ultimoT = {};

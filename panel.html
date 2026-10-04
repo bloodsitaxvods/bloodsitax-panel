@@ -119,6 +119,26 @@ a{color:var(--rosa)}
 .res-nom{color:var(--blanco);font-size:14px;font-weight:700;overflow-wrap:anywhere}
 .res-fila .btn{padding:5px 12px;font-size:13px}
 .opcion input[type=checkbox]{accent-color:var(--neon)}
+/* Votación y chat */
+.chat-barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.chat-estado{font-size:13px;color:var(--tenue)}
+.chat-estado.ok{color:var(--rosa)}
+.vot-filas{margin:10px 0 4px}
+.vletra{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--neon);font-weight:800}
+.vfila{grid-template-columns:30px 1fr auto}
+.regirar{margin:12px 0 4px;padding:12px;border:1px solid var(--linea);border-radius:12px;background:var(--sup2)}
+.regirar span{display:block;font-size:13px;font-weight:700;color:var(--tenue);margin-bottom:8px}
+.regirar-botones{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.regirar-botones .btn{font-size:20px;padding:10px 0}
+.vfila.gana{background:rgba(255,0,127,.14);border-radius:10px;padding-left:6px;padding-right:6px}
+.vconteo{color:var(--rosa);font-size:13px;font-weight:700;white-space:nowrap}
+.vot-estado-panel{margin:10px 0 0;font-size:14px;color:var(--blanco);font-weight:700}
+.chat{margin-top:14px;height:260px;overflow-y:auto;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+.chat .msg{padding:1px 0}
+.chat .insignia{width:18px;height:18px;vertical-align:-4px;margin-right:3px}
+.chat .emote{height:24px;vertical-align:-7px;margin:0 1px}
+.voto-tag{margin-left:8px;font-size:11px;font-weight:800;background:var(--neon);color:var(--blanco);border-radius:6px;padding:1px 6px}
+.voto-tag.rep{background:var(--sup2);color:var(--tenue)}
 .disponible{margin:8px 0 0;font-size:13px;color:var(--tenue)}
 .disponible.falta{color:var(--blanco);background:rgba(255,0,127,.16);border:1px solid var(--neon);border-radius:10px;padding:8px 12px}
 
@@ -284,7 +304,7 @@ const ANCHO = 1920, ALTO = 1080;
 const ELEMENTOS = {
   'marvel-random':       { nombre:'Random de Marvel',   tipo:'tirada', juego:'marvel', w:1100, h:560, x:960, y:540 },
   'dbd-killer-random':   { nombre:'Killer random',      tipo:'tirada', juego:'killer', w:1100, h:560, x:960, y:540 },
-  'dbd-killer-votacion': { nombre:'Votación de killer', accion:'Votación',       w:1500, h:640, x:960,  y:560 },
+  'dbd-killer-votacion': { nombre:'Votación de killer', tipo:'votacion', juego:'killer', w:1500, h:700, x:960, y:540 },
   'dbd-survi-random':    { nombre:'Survi random',       tipo:'tirada', juego:'survi',  w:1100, h:560, x:960, y:540 },
   'dbd-survi-votacion':  { nombre:'Votación de survi',  accion:'Votación',       w:1500, h:640, x:960,  y:560 },
   'sorteo-ruleta':       { nombre:'Ruleta de sorteo',   tipo:'ruleta',           w:760,  h:760, x:960,  y:540 },
@@ -366,6 +386,7 @@ function porDefecto(id){
   const d = ELEMENTOS[id];
   const base = { nombre:d.nombre, tipo:d.tipo || 'prueba', w:d.w, h:d.h, x:d.x, y:d.y, escala:1, rot:0, opacidad:1, capa:1, visible:false, datos:null };
   if(d.juego) base.opc = d.juego === 'marvel' ? { cantidad:1, grupo:'' } : { perks:4 };
+  if(d.tipo === 'votacion') base.opc = { dur:20 };
   return base;
 }
 const estado = {};
@@ -519,7 +540,31 @@ function tarjeta(id){
     </article>`;
   }
   let cuerpo;
-  if(e.tipo === 'tirada'){
+  if(e.tipo === 'votacion'){
+    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="vgirar">Girar</button>
+        <button class="btn grande" data-act="vreset">Resetear y girar todo</button>
+        <button class="btn" data-act="ocultar">Ocultar</button>
+      </div>
+      <p class="disponible" data-disponible></p>
+      <div class="vot-filas" data-vot-filas></div>
+      <div class="regirar">
+        <span>Volver a girar solo uno</span>
+        <div class="regirar-botones">${'ABCD'.split('').map((l, i) => `<button class="btn grande" data-regirar="${i}" title="Cambiar el killer ${l}">${l}</button>`).join('')}</div>
+      </div>
+      <div class="opciones">
+        <label class="opcion">Duración <select data-opc="dur">${[10,15,20,30,45,60].map(n => `<option value="${n}">${n} s</option>`).join('')}</select></label>
+        <label class="opcion"><input type="checkbox" data-opc-check="verVotos"> Mostrar cantidad de votos</label>
+      </div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="viniciar">Empezar votación</button>
+        <button class="btn grande" data-act="vdetener">Detener votación</button>
+        <button class="btn grande" data-act="vdesempatar">Desempatar</button>
+      </div>
+      <p class="vot-estado-panel" data-vot-estado></p>
+      <div class="chat" data-chat></div>`;
+  } else if(e.tipo === 'tirada'){
     const marvel = d.juego === 'marvel';
     const opciones = marvel
       ? `<label class="opcion">Personajes <select data-opc="cantidad">${[1,2,3,4,5,6].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
@@ -652,6 +697,10 @@ function pintarTarjeta(id){
     inp.value = valorUI(inp.dataset.campo, e);
   });
   t.querySelectorAll('[data-signo]').forEach(b => b.classList.toggle('activo', !!e.visible && !!e.datos && e.datos.signo === b.dataset.signo));
+  if(e.tipo === 'votacion'){
+    t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? ''); });
+    pintarVotacion(t, e);
+  }
   if(e.tipo === 'tirada'){
     const o = e.opc || {};
     t.querySelectorAll('[data-opc]').forEach(sel => {
@@ -943,6 +992,259 @@ function cambiarCarta(id, k){
   if(c.p) carta.p = 1;
   cartas[k] = carta;
   update(id, { visible:true, datos:{ ...d, cartas } });
+}
+
+/* ---------- Chat de Twitch (solo lectura, sin iniciar sesión) ---------- */
+const CANAL_TWITCH = 'bloodsitax';
+// Emblemas globales de respaldo por si la lista completa no carga
+const INSIGNIAS_GLOBALES = {
+  broadcaster:'5527c58c-fb7d-422d-b71b-f309dcb85cc1', moderator:'3267646d-33f0-4b17-b3df-f923a41db1d0',
+  vip:'b817aba4-fad8-49e2-b88a-7cc744dfa6ec', subscriber:'5d9f2208-5dd8-11e7-8513-2ff4adfae661',
+  founder:'511b78a9-ab37-472f-9569-457753bbe7d3', partner:'d12a2e27-16f6-41d0-ab77-b780518f00a3',
+  premium:'bbbe0db0-a598-423e-86d0-f9fb98ca1933', turbo:'bd444ec6-8f34-4bf9-91f4-af1e3428d80f',
+  staff:'d97c37bd-a6f5-4c38-8f57-4e4bef88af34'
+};
+const Chat = {
+  ws:null, conectado:false, quiere:false, intento:0, insignias:{}, cargadas:false, texto:'Chat desconectado',
+  conectar(){
+    this.quiere = true;
+    if(this.ws) return;
+    this.estado('Conectando al chat...');
+    const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    this.ws = ws;
+    ws.onopen = () => {
+      ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      ws.send('PASS SCHMOOPIIE');
+      ws.send('NICK justinfan' + (10000 + randInt(89999)));
+      ws.send('JOIN #' + CANAL_TWITCH);
+    };
+    ws.onmessage = ev => String(ev.data).split('\r\n').forEach(l => { if(l) this.linea(l); });
+    ws.onclose = () => {
+      this.ws = null; this.conectado = false;
+      if(this.quiere){
+        this.estado('Se perdió la conexión, reconectando...');
+        setTimeout(() => { if(this.quiere) this.conectar(); }, Math.min(15000, 1000 * 2 ** this.intento++));
+      } else this.estado('Chat desconectado');
+    };
+    if(!this.cargadas) this.cargarInsignias();
+  },
+  desconectar(){ this.quiere = false; if(this.ws) this.ws.close(); else this.estado('Chat desconectado'); },
+  alternar(){ this.quiere ? this.desconectar() : this.conectar(); },
+  estado(t){ this.texto = t; document.querySelectorAll('[data-chat-estado]').forEach(el => { el.textContent = t; el.classList.toggle('ok', this.conectado); });
+    document.querySelectorAll('[data-act="chat"]').forEach(b => b.textContent = this.quiere ? 'Desconectar chat' : 'Conectar chat'); },
+  async cargarInsignias(){
+    this.cargadas = true;
+    const leer = json => {
+      const sets = Array.isArray(json) ? json : (json && (json.data || json.badge_sets)) || [];
+      for(const s of (Array.isArray(sets) ? sets : [])){
+        const set = s.set_id || s.setID || s.id;
+        for(const v of (s.versions || [])){
+          const url = v.image_url_2x || v.image_url_1x || v.imageURL || v.image_url;
+          if(set && url) (this.insignias[set] = this.insignias[set] || {})[String(v.id)] = url;
+        }
+      }
+    };
+    // Lista pública de emblemas (incluye los de sub propios del canal); si falla, se usan los globales de respaldo
+    try{ const r = await fetch('https://api.ivr.fi/v2/twitch/badges/global'); if(r.ok) leer(await r.json()); }catch{}
+    try{ const r = await fetch('https://api.ivr.fi/v2/twitch/badges/channel?login=' + CANAL_TWITCH); if(r.ok) leer(await r.json()); }catch{}
+  },
+  urlInsignia(set, ver){
+    const s = this.insignias[set];
+    if(s && (s[ver] || s['0'] || s['1'])) return s[ver] || s['0'] || s['1'];
+    return INSIGNIAS_GLOBALES[set] ? `https://static-cdn.jtvnw.net/badges/v1/${INSIGNIAS_GLOBALES[set]}/2` : '';
+  },
+  linea(l){
+    if(l.startsWith('PING')){ if(this.ws) this.ws.send('PONG :tmi.twitch.tv'); return; }
+    let tags = {}, resto = l;
+    if(l[0] === '@'){
+      const sp = l.indexOf(' ');
+      for(const kv of l.slice(1, sp).split(';')){
+        const i = kv.indexOf('=');
+        tags[kv.slice(0, i)] = kv.slice(i + 1).replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\');
+      }
+      resto = l.slice(sp + 1);
+    }
+    const m = /^(?::(\S+) )?(\S+)(?: ([^:][^ ]*))?(?: :(.*))?$/.exec(resto);
+    if(!m) return;
+    const [, prefijo = '', comando, , texto = ''] = m;
+    if(comando === 'ROOMSTATE' || comando === '366'){
+      if(!this.conectado){ this.conectado = true; this.intento = 0; this.estado('Conectado al chat de #' + CANAL_TWITCH); }
+    } else if(comando === 'PRIVMSG') this.mensaje(tags, prefijo.split('!')[0], texto);
+  },
+  mensaje(tags, login, texto){
+    let msg = texto;
+    const accion = /^\u0001ACTION (.*)\u0001$/.exec(msg);
+    if(accion) msg = accion[1];
+    const usuario = tags['user-id'] || login;
+    // Voto válido: el mensaje es solo la letra A, B, C o D (mayúscula o minúscula)
+    let marca = '';
+    const limpio = msg.trim();
+    if(/^[abcd]$/i.test(limpio) && Vot.activo){
+      marca = Vot.voto(usuario, limpio.toUpperCase())
+        ? `<span class="voto-tag">Voto ${limpio.toUpperCase()}</span>` : '<span class="voto-tag rep">Ya votó</span>';
+    }
+    const insignias = (tags.badges || '').split(',').filter(Boolean).map(b => {
+      const [set, ver] = b.split('/'), url = this.urlInsignia(set, ver);
+      return url ? `<img class="insignia" src="${url}" alt="${esc(set)}" title="${esc(set)}" onerror="this.remove()">` : '';
+    }).join('');
+    const nombre = esc(tags['display-name'] || login);
+    const color = /^#[0-9a-f]{6}$/i.test(tags.color || '') ? tags.color : '#FFC2DC';
+    this.agregar(`${insignias}<b style="color:${color}">${nombre}</b>: ${conEmotes(msg, tags.emotes)}${marca}`);
+  },
+  agregar(html){
+    document.querySelectorAll('[data-chat]').forEach(box => {
+      const abajo = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+      const div = document.createElement('div'); div.className = 'msg'; div.innerHTML = html;
+      box.append(div);
+      while(box.children.length > 150) box.firstElementChild.remove();
+      if(abajo) box.scrollTop = box.scrollHeight;
+    });
+  }
+};
+// Reemplaza los rangos de emotes del mensaje por sus imágenes (incluye emotes de sub de cualquier canal)
+function conEmotes(texto, emotesTag){
+  const cps = Array.from(texto), rangos = [];
+  (emotesTag || '').split('/').forEach(p => {
+    const [id, pos] = p.split(':'); if(!id || !pos) return;
+    pos.split(',').forEach(r => { const [a, b] = r.split('-').map(Number); if(!isNaN(a) && !isNaN(b)) rangos.push({ a, b, id }); });
+  });
+  rangos.sort((x, y) => x.a - y.a);
+  let html = '', i = 0;
+  for(const r of rangos){
+    if(r.a < i) continue;
+    html += esc(cps.slice(i, r.a).join(''));
+    const nombre = cps.slice(r.a, r.b + 1).join('');
+    html += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(r.id)}/default/dark/1.0" alt="${esc(nombre)}" title="${esc(nombre)}">`;
+    i = r.b + 1;
+  }
+  return html + esc(cps.slice(i).join(''));
+}
+
+/* ---------- Votación de killer ---------- */
+const VOT_ID = 'dbd-killer-votacion', LETRAS = 'ABCD';
+function girarVotacion(forzar){
+  const kill = Cat.activos('killers');
+  if(kill.length < 4) return toast('Necesitas al menos 4 killers activos en el Catálogo');
+  if(Vot.activo && !forzar) return toast('Hay una votación en curso. Detenla o usa Resetear y girar todo');
+  Vot.limpiar();
+  const elegidos = muestra(kill, 4);
+  const pozo = muestra(kill.filter(x => !elegidos.includes(x)), SENUELOS + 4);
+  const cartas = elegidos.map(x => ({ f:refCat('killers', x, true), s:rellenar(barajar(pozo.length ? pozo : elegidos), SENUELOS).map(y => refCat('killers', y)) }));
+  update(VOT_ID, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas }, vot:{ fase:'listo' } });
+}
+const Vot = {
+  votantes:new Map(), conteo:{ A:0, B:0, C:0, D:0 }, activo:false, reloj:0, sucio:false,
+  iniciar(){
+    const e = estado[VOT_ID];
+    if(lista(e.datos && e.datos.cartas).length < 4) return toast('Primero dale a Girar para sacar los 4 killers');
+    if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
+    const dur = clamp(Number((e.opc || {}).dur) || 20, 5, 300) * 1000;
+    this.votantes.clear(); this.conteo = { A:0, B:0, C:0, D:0 }; this.activo = true; this.sucio = false;
+    update(VOT_ID, { visible:true, vot:{ fase:'votando', fin:ahora() + dur, dur, votos:{ ...this.conteo } } });
+    clearInterval(this.reloj);
+    this.reloj = setInterval(() => this.tick(), 400);
+  },
+  voto(usuario, letra){
+    const v = estado[VOT_ID].vot || {};
+    if(!this.activo || ahora() >= v.fin || this.votantes.has(usuario)) return false;
+    this.votantes.set(usuario, letra); this.conteo[letra]++; this.sucio = true;
+    return true;
+  },
+  tick(){
+    const v = estado[VOT_ID].vot || {};
+    if(this.sucio){ this.sucio = false; update(VOT_ID, { vot:{ ...v, votos:{ ...this.conteo } } }); }
+    if(ahora() >= v.fin) this.cerrar();
+    else pintarTarjeta(VOT_ID);
+  },
+  // Termina la votación y decide ganador o empate
+  cerrar(){
+    const v = estado[VOT_ID].vot || {};
+    if(v.fase !== 'votando') return;
+    const votos = this.activo ? { ...this.conteo } : { A:0, B:0, C:0, D:0, ...(v.votos || {}) };
+    this.activo = false; clearInterval(this.reloj);
+    const max = Math.max(...LETRAS.split('').map(l => votos[l] || 0));
+    const empatados = [0, 1, 2, 3].filter(i => (votos[LETRAS[i]] || 0) === max);
+    const nuevo = { fase: empatados.length === 1 ? 'ganador' : 'empate', votos };
+    if(empatados.length === 1) nuevo.ganador = empatados[0]; else nuevo.empatados = empatados;
+    update(VOT_ID, { vot:nuevo });
+  },
+  desempatar(){
+    const v = estado[VOT_ID].vot || {};
+    if(v.fase !== 'empate') return;
+    const lst = lista(v.empatados), g = lst[randInt(lst.length)];
+    const des = { lista:lst, ganador:g, inicio:ahora() + 400, dur:3000 };
+    update(VOT_ID, { vot:{ ...v, fase:'desempate', des } });
+    setTimeout(() => {
+      const vv = estado[VOT_ID].vot || {};
+      if(vv.fase === 'desempate' && vv.des && vv.des.inicio === des.inicio) update(VOT_ID, { vot:{ ...vv, fase:'ganador', ganador:g } });
+    }, 3800);
+  },
+  // Borra todos los votos y quién votó, para que el chat pueda volver a votar
+  limpiar(){
+    this.activo = false; clearInterval(this.reloj);
+    this.votantes.clear(); this.conteo = { A:0, B:0, C:0, D:0 }; this.sucio = false;
+  },
+  quitarLetra(L){
+    if(this.activo){
+      for(const [u, l] of this.votantes) if(l === L) this.votantes.delete(u);
+      this.conteo[L] = 0; this.sucio = true;
+    } else {
+      const v = estado[VOT_ID].vot || {};
+      update(VOT_ID, { vot:{ ...v, votos:{ ...(v.votos || {}), [L]:0 } } });
+    }
+  },
+  resetearYGirar(){ girarVotacion(true); toast('Votos reiniciados y killers nuevos'); }
+};
+// Cambia solo un killer (A, B, C o D). Si ya había votos de esa letra, se borran
+// y esas personas pueden volver a votar; si ya había resultado, la votación vuelve a cero.
+function regirarVotacion(i){
+  const v = estado[VOT_ID].vot || { fase:'listo' };
+  if(v.fase === 'desempate') return toast('Espera a que termine el desempate');
+  if(v.fase === 'votando') Vot.quitarLetra(LETRAS[i]);
+  cambiarCarta(VOT_ID, i);
+  if(v.fase === 'ganador' || v.fase === 'empate'){ Vot.limpiar(); update(VOT_ID, { vot:{ fase:'listo' } }); }
+}
+function pintarVotacion(t, e){
+  const d = e.datos, v = e.vot || { fase:'listo' }, cartas = lista(d && d.cartas);
+  const votos = v.votos || {}, tot = LETRAS.split('').reduce((s, l) => s + (votos[l] || 0), 0);
+  const ocupada = v.fase === 'votando' || v.fase === 'desempate';
+  const nk = Cat.activos('killers').length, disp = t.querySelector('[data-disponible]');
+  const falta = Cat.error ? 'No se pudo leer el catálogo. Revisa las reglas en Configuración.'
+    : nk < 4 ? `Necesitas al menos 4 killers activos (hay ${nk}). Súbelos en Catálogo, pestaña Killers.` : '';
+  disp.textContent = falta || `Disponibles: ${nk} killers activos.`;
+  disp.classList.toggle('falta', !!falta);
+  t.querySelector('[data-act="vgirar"]').disabled = !!falta || ocupada;
+  t.querySelector('[data-act="vreset"]').disabled = !!falta;
+  t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = (e.opc || {})[c.dataset.opcCheck] !== false; });
+
+  const filas = t.querySelector('[data-vot-filas]'), firma = cartas.map(k => k.f && k.f.i).join('|');
+  if(filas._firma !== firma){
+    filas._firma = firma;
+    filas.innerHTML = cartas.map((k, i) => `<div class="res-fila vfila"><span class="vletra">${LETRAS[i]}</span><span class="res-nom">${esc(nombreVisible(k.f && k.f.n))}</span><span class="vconteo" data-vconteo="${i}"></span></div>`).join('');
+  }
+  filas.querySelectorAll('[data-vconteo]').forEach(s => {
+    const n = votos[LETRAS[+s.dataset.vconteo]] || 0;
+    s.textContent = v.fase === 'listo' ? '' : `${n} (${tot ? Math.round(n * 100 / tot) : 0}%)`;
+  });
+  t.querySelectorAll('[data-regirar]').forEach(b => b.disabled = cartas.length < 4 || v.fase === 'desempate');
+  filas.querySelectorAll('.vfila').forEach((f, i) => f.classList.toggle('gana', v.fase === 'ganador' && v.ganador === i));
+
+  let txt;
+  const nom = i => `${LETRAS[i]} (${nombreVisible(cartas[i] && cartas[i].f.n)})`;
+  switch(v.fase){
+    case 'votando': txt = Vot.activo ? `Votando: ${Math.max(0, Math.ceil((v.fin - ahora()) / 1000))} s restantes, ${tot} ${tot === 1 ? 'voto' : 'votos'}.` : 'La votación quedó a medias porque se recargó el panel. Usa Detener votación para cerrarla con los votos que llevaba.'; break;
+    case 'ganador': txt = `Ganador: ${nom(v.ganador)} con ${votos[LETRAS[v.ganador]] || 0} de ${tot} votos.`; break;
+    case 'empate': txt = `Empate entre ${lista(v.empatados).map(i => LETRAS[i]).join(', ')} con ${(() => { const n = votos[LETRAS[lista(v.empatados)[0]]] || 0; return n + (n === 1 ? ' voto' : ' votos'); })()} cada uno. Usa Desempatar.`; break;
+    case 'desempate': txt = 'Desempatando...'; break;
+    default: txt = cartas.length ? 'Listo. Dale a Empezar votación.' : 'Dale a Girar para sacar 4 killers.';
+  }
+  t.querySelector('[data-vot-estado]').textContent = txt;
+  t.querySelector('[data-act="viniciar"]').disabled = cartas.length < 4 || v.fase !== 'listo';
+  t.querySelector('[data-act="vdetener"]').disabled = v.fase !== 'votando';
+  t.querySelector('[data-act="vdesempatar"]').disabled = v.fase !== 'empate';
+  const est = t.querySelector('[data-chat-estado]');
+  if(est){ est.textContent = Chat.texto; est.classList.toggle('ok', Chat.conectado); }
+  t.querySelector('[data-act="chat"]').textContent = Chat.quiere ? 'Desconectar chat' : 'Conectar chat';
 }
 
 /* ---------- Almacenamiento local (modo sin Firebase) ---------- */
@@ -1286,6 +1588,12 @@ function accion(id, act){
   switch(act){
     case 'lanzar': return update(id, { visible:true, datos:{ accion:d.accion, t:Date.now() } });
     case 'tirar': return tirar(id);
+    case 'chat': return Chat.alternar();
+    case 'vgirar': return girarVotacion(false);
+    case 'vreset': return Vot.resetearYGirar();
+    case 'viniciar': return Vot.iniciar();
+    case 'vdetener': return Vot.cerrar();
+    case 'vdesempatar': return Vot.desempatar();
     case 'mostrar': return update(id, { visible:true });
     case 'ocultar': return update(id, { visible:false });
     case 'girar': return girar(id);
@@ -1338,6 +1646,7 @@ function eventos(){
     }
     const t = ev.target.closest('.tarjeta[data-el]'); if(!t) return;
     const id = t.dataset.el;
+    const rg = ev.target.closest('[data-regirar]'); if(rg) return regirarVotacion(+rg.dataset.regirar);
     const cb = ev.target.closest('[data-cambiar]'); if(cb) return cambiarCarta(id, +cb.dataset.cambiar);
     const a = ev.target.closest('[data-act]'); if(a) return accion(id, a.dataset.act);
     const p = ev.target.closest('[data-pos]'); if(p) return posRapida(id, +p.dataset.pos);
@@ -1480,7 +1789,7 @@ function eventos(){
   new ResizeObserver(() => { $('#previa').style.transform = `scale(${$('#escenario').clientWidth / ANCHO})`; }).observe($('#escenario'));
 
   // Mientras una ruleta gira, el panel actualiza su estado ("Girando..." y luego el ganador)
-  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta') pintarTarjeta(id); }, 500);
+  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta' || estado[id].tipo === 'votacion') pintarTarjeta(id); }, 500);
 }
 
 /* ---------- Link, descarga y utilidades ---------- */
