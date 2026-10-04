@@ -314,6 +314,7 @@ const ELEMENTOS = {
   'sorteo-ruleta':       { nombre:'Ruleta de sorteo',   tipo:'ruleta',           w:760,  h:760, x:960,  y:540 },
   'retos-ruleta-chica':  { nombre:'Ruleta pequeña',     accion:'Ruleta pequeña', w:440,  h:440, x:1640, y:780 },
   'retos-ruleta-grande': { nombre:'Ruleta grande',      accion:'Ruleta grande',  w:820,  h:820, x:960,  y:540 },
+  'perks-votacion':      { nombre:'Perks del ganador',  tipo:'tirada', juego:'perksKiller', w:1000, h:380, x:960, y:880 },
   'chat-votacion':       { nombre:'Chat en el overlay', tipo:'chat',  w:520, h:640, x:1620, y:560 },
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 }
 };
@@ -323,7 +324,7 @@ const PESTANAS = [
   { id:'dbd', nombre:'DBD', sub:[
       { id:'killer', nombre:'Killer', sub:[
           { id:'random',   nombre:'Killer random',   elementos:['dbd-killer-random'] },
-          { id:'votacion', nombre:'Votación killer', elementos:['dbd-killer-votacion','chat-votacion'] } ] },
+          { id:'votacion', nombre:'Votación killer', elementos:['dbd-killer-votacion','perks-votacion','chat-votacion'] } ] },
       { id:'survi', nombre:'Survi', sub:[
           { id:'random',   nombre:'Survi random',    elementos:['dbd-survi-random'] },
           { id:'votacion', nombre:'Votación survi',  elementos:['dbd-survi-votacion'] } ] } ] },
@@ -345,7 +346,8 @@ const CATEGORIAS = {
 const JUEGOS = {
   killer: { personaje:'killers', perks:'perks-killer', titulo:'Killer' },
   survi:  { personaje:'survis',  perks:'perks-survi',  titulo:'Survi' },
-  marvel: { personaje:'marvel' }
+  marvel: { personaje:'marvel' },
+  perksKiller: { perks:'perks-killer', soloPerks:true }
 };
 const SENUELOS = 8;        // imágenes de paso en cada carta durante la animación
 const ESPERA_TIRADA = 1200; // ms que el overlay tiene para precargar antes de animar
@@ -579,7 +581,11 @@ function tarjeta(id){
          <label class="opcion">Grupo <select data-opc="grupo"><option value="">Todos</option></select></label>`
       : `<label class="opcion">Perks <select data-opc="perks">${[0,1,2,3,4].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
          <label class="opcion"><input type="checkbox" data-opc-check="nombresPerks"> Mostrar nombres de perks</label>`;
-    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar</button><button class="btn" data-act="ocultar">Ocultar</button></div>
+    const soloPerks = !!(JUEGOS[d.juego] || {}).soloPerks;
+    cuerpo = (soloPerks
+      ? `<label class="opcion grande-check"><input type="checkbox" data-visible> Mostrar perks en el overlay</label>
+         <div class="acciones" style="margin-top:12px"><button class="btn principal grande" data-act="tirar">Girar perks</button></div>`
+      : `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar</button><button class="btn" data-act="ocultar">Ocultar</button></div>`) + `
       <div class="opciones">${opciones}</div>
       <p class="disponible" data-disponible></p>
       <p class="resultado" data-resultado></p>
@@ -727,6 +733,11 @@ function pintarTarjeta(id){
     const disp = t.querySelector('[data-disponible]'), j = JUEGOS[ELEMENTOS[id].juego];
     let txt, falta = '';
     if(Cat.error) falta = 'No se pudo leer el catálogo. Copia de nuevo las reglas desde Configuración (deben incluir "catalogo") y publícalas en Firebase.';
+    else if(j.soloPerks){
+      const nk = Cat.activos(j.perks).length, pide = o.perks || 4;
+      txt = `Disponibles: ${nk} perks activos.`;
+      if(nk < pide) falta = `Faltan perks: pides ${pide} y hay ${nk} activos en ${CATEGORIAS[j.perks].nombre}. Súbelos en Catálogo.`;
+    }
     else if(j.perks){
       const np = Cat.activos(j.personaje).length, nk = Cat.activos(j.perks).length, pide = o.perks ?? 4;
       txt = `Disponibles: ${np} ${CATEGORIAS[j.personaje].nombre.toLowerCase()} y ${nk} perks activos.`;
@@ -967,7 +978,13 @@ function refCat(c, id, conNombre){
 function tirar(id){
   const e = estado[id], j = JUEGOS[ELEMENTOS[id].juego], o = e.opc || {};
   const cartas = [];
-  if(j.perks){
+  if(j.soloPerks){
+    const perks = Cat.activos(j.perks), n = clamp(o.perks || 4, 1, 4);
+    if(perks.length < n) return toast(`Faltan perks activos en ${CATEGORIAS[j.perks].nombre}`);
+    const elegidas = muestra(perks, n);
+    const pozo = muestra(perks.filter(x => !elegidas.includes(x)), SENUELOS + 4);
+    for(const p of elegidas) cartas.push({ p:1, f:refCat(j.perks, p, true), s:rellenar(barajar(pozo.length ? pozo : elegidas), SENUELOS).map(x => refCat(j.perks, x)) });
+  } else if(j.perks){
     const pers = Cat.activos(j.personaje), perks = Cat.activos(j.perks), nPerks = clamp(o.perks ?? 4, 0, 4);
     if(!pers.length) return toast(`Agrega ${CATEGORIAS[j.personaje].nombre.toLowerCase()} en Catálogo`);
     if(perks.length < nPerks) return toast(`Faltan perks activos en ${CATEGORIAS[j.perks].nombre}`);

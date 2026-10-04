@@ -69,8 +69,8 @@ body.guias .el{outline:3px dashed #FF007F}
 .ventana.girando{animation:desenfoque var(--dur) linear forwards}
 @keyframes desenfoque{0%{filter:none}10%{filter:blur(2.5px)}70%{filter:blur(1.2px)}100%{filter:none}}
 .tira{will-change:transform}
-.cuadro{display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:8%}
-.cuadro img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.cuadro{display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:3%}
+.cuadro img{width:100%;height:100%;object-fit:contain;display:block}
 .cuadro span{display:none;color:#FFFFFF;font-weight:800;text-align:center;line-height:1.15;font-size:16px}
 .cuadro.sin-img span{display:block}
 /* Sombra arriba y abajo de la ventana, como un tragamonedas */
@@ -89,6 +89,7 @@ body.guias .el{outline:3px dashed #FF007F}
   background:rgba(13,13,13,.92);border:2px solid #FF007F;color:#FFFFFF;font-weight:800;line-height:1.12;overflow-wrap:anywhere;
   opacity:0;transform:translateY(10px);transition:opacity .35s ease, transform .35s ease}
 .nombre small{display:block;color:#FFC2DC;font-weight:700;font-size:.62em;margin-top:2px}
+.nombre:not(.perk){white-space:nowrap;max-width:170%;overflow:hidden;text-overflow:ellipsis}
 /* Nombre de perk: más sutil, máximo dos líneas para que no choquen */
 .nombre.perk{width:100%;max-width:100%;margin-top:10px;padding:0;border:0;border-radius:0;background:none;
   font-weight:700;color:rgba(255,255,255,.92);line-height:1.18;text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.85);
@@ -396,11 +397,27 @@ async function armarTirada(cont, e, d, tok, st, modo){
   // Precarga solo las imágenes de esta tirada
   await Promise.all(els.map((el, i) => ponerImagenes([...el.querySelectorAll('.cuadro')], framesDe(cartas[i]))));
   if(tok !== st.token) return;
+  ajustarProporcion(els, cartas);
   // Todas arrancan juntas y frenan en cascada de izquierda a derecha
   els.forEach((el, i) => {
     const k = cartas[i];
     if(k.r) girarTira(el, k.ini || d.inicio, 1600, st);
     else girarTira(el, d.inicio, 1700 + i * 380, st);
+  });
+}
+// La carta toma la proporción de su imagen final (sin estirarla) para que la imagen llene casi todo el interior.
+// Todas las perks de una fila comparten la misma proporción para que se vean parejas.
+function ajustarProporcion(els, cartas){
+  const aspecto = el => { const im = el.querySelector('.tira > .cuadro:last-child img'); return im && im.naturalWidth ? im.naturalHeight / im.naturalWidth : 0; };
+  let aspPerk = 0;
+  els.forEach((el, i) => { if(cartas[i].p && !aspPerk) aspPerk = aspecto(el); });
+  els.forEach((el, i) => {
+    const a = cartas[i].p ? aspPerk : aspecto(el);
+    if(!a) return;
+    const w = el.offsetWidth, prop = Math.min(1.6, Math.max(.9, a * .94 + .06));
+    const h = Math.round(w * prop);
+    el.querySelector('.marco').style.height = h + 'px';
+    el.querySelectorAll('.cuadro').forEach(q => q.style.height = h + 'px');
   });
 }
 async function regirar(cont, i, k, st){
