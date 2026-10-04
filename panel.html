@@ -119,6 +119,8 @@ a{color:var(--rosa)}
 .res-nom{color:var(--blanco);font-size:14px;font-weight:700;overflow-wrap:anywhere}
 .res-fila .btn{padding:5px 12px;font-size:13px}
 .opcion input[type=checkbox]{accent-color:var(--neon)}
+.grande-check{font-size:16px;font-weight:700;color:var(--blanco)}
+.grande-check input{width:18px;height:18px}
 /* Votación y chat */
 .chat-barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
 .chat-estado{font-size:13px;color:var(--tenue)}
@@ -130,6 +132,8 @@ a{color:var(--rosa)}
 .regirar span{display:block;font-size:13px;font-weight:700;color:var(--tenue);margin-bottom:8px}
 .regirar-botones{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .regirar-botones .btn{font-size:20px;padding:10px 0}
+.regirar-botones.chicos .btn{font-size:15px;padding:12px 4px}
+.res-fila:not(.vfila){grid-template-columns:78px 1fr}
 .vfila.gana{background:rgba(255,0,127,.14);border-radius:10px;padding-left:6px;padding-right:6px}
 .vconteo{color:var(--rosa);font-size:13px;font-weight:700;white-space:nowrap}
 .vot-estado-panel{margin:10px 0 0;font-size:14px;color:var(--blanco);font-weight:700}
@@ -310,6 +314,7 @@ const ELEMENTOS = {
   'sorteo-ruleta':       { nombre:'Ruleta de sorteo',   tipo:'ruleta',           w:760,  h:760, x:960,  y:540 },
   'retos-ruleta-chica':  { nombre:'Ruleta pequeña',     accion:'Ruleta pequeña', w:440,  h:440, x:1640, y:780 },
   'retos-ruleta-grande': { nombre:'Ruleta grande',      accion:'Ruleta grande',  w:820,  h:820, x:960,  y:540 },
+  'chat-votacion':       { nombre:'Chat en el overlay', tipo:'chat',  w:520, h:640, x:1620, y:560 },
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 }
 };
 const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
@@ -318,7 +323,7 @@ const PESTANAS = [
   { id:'dbd', nombre:'DBD', sub:[
       { id:'killer', nombre:'Killer', sub:[
           { id:'random',   nombre:'Killer random',   elementos:['dbd-killer-random'] },
-          { id:'votacion', nombre:'Votación killer', elementos:['dbd-killer-votacion'] } ] },
+          { id:'votacion', nombre:'Votación killer', elementos:['dbd-killer-votacion','chat-votacion'] } ] },
       { id:'survi', nombre:'Survi', sub:[
           { id:'random',   nombre:'Survi random',    elementos:['dbd-survi-random'] },
           { id:'votacion', nombre:'Votación survi',  elementos:['dbd-survi-votacion'] } ] } ] },
@@ -540,7 +545,10 @@ function tarjeta(id){
     </article>`;
   }
   let cuerpo;
-  if(e.tipo === 'votacion'){
+  if(e.tipo === 'chat'){
+    cuerpo = `<label class="opcion grande-check"><input type="checkbox" data-visible> Mostrar chat en el overlay</label>
+      <p class="nota">Muestra el chat de #${CANAL_TWITCH} con emotes y emblemas. El overlay se conecta solo cuando está visible, y marca los votos durante la votación.</p>`;
+  } else if(e.tipo === 'votacion'){
     cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="acciones">
         <button class="btn principal grande" data-act="vgirar">Girar</button>
@@ -574,7 +582,8 @@ function tarjeta(id){
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar</button><button class="btn" data-act="ocultar">Ocultar</button></div>
       <div class="opciones">${opciones}</div>
       <p class="disponible" data-disponible></p>
-      <p class="resultado" data-resultado></p>`;
+      <p class="resultado" data-resultado></p>
+      <div class="regirar" data-regirar-tirada hidden></div>`;
   } else if(e.tipo === 'ruleta'){
     cuerpo = `<textarea class="lista" data-lista placeholder="Escribe un nombre por línea" aria-label="Lista de la ruleta"></textarea>
       <div class="lista-info"><span data-conteo>0 opciones</span><strong data-ganador></strong></div>
@@ -697,6 +706,7 @@ function pintarTarjeta(id){
     inp.value = valorUI(inp.dataset.campo, e);
   });
   t.querySelectorAll('[data-signo]').forEach(b => b.classList.toggle('activo', !!e.visible && !!e.datos && e.datos.signo === b.dataset.signo));
+  t.querySelectorAll('[data-visible]').forEach(c => { c.checked = !!e.visible; });
   if(e.tipo === 'votacion'){
     t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? ''); });
     pintarVotacion(t, e);
@@ -739,10 +749,13 @@ function pintarTarjeta(id){
     if(res._firma !== firma){
       res._firma = firma;
       let nPerk = 0, nPers = 0;
-      res.innerHTML = cartas.map((k, i) => {
-        const tit = k.p ? `Perk ${++nPerk}` : (j.perks ? CATEGORIAS[j.personaje].nombre.replace(/s$/, '') : `Personaje ${++nPers}`);
-        return `<div class="res-fila"><span class="res-tit">${tit}</span><span class="res-nom">${esc(nombreVisible(k.f && k.f.n))}</span><button class="btn" data-cambiar="${i}">Cambiar</button></div>`;
-      }).join('');
+      const titulos = cartas.map(k => k.p ? `Perk ${++nPerk}` : (j.perks ? CATEGORIAS[j.personaje].nombre.replace(/s$/, '') : `Personaje ${++nPers}`));
+      res.innerHTML = cartas.map((k, i) => `<div class="res-fila"><span class="res-tit">${titulos[i]}</span><span class="res-nom">${esc(nombreVisible(k.f && k.f.n))}</span></div>`).join('');
+      const caja = t.querySelector('[data-regirar-tirada]');
+      caja.hidden = !cartas.length;
+      caja.innerHTML = cartas.length ? `<span>Volver a girar solo uno</span>
+        <div class="regirar-botones chicos" style="grid-template-columns:repeat(${cartas.length},1fr)">${
+          cartas.map((k, i) => `<button class="btn grande" data-cambiar="${i}" title="Volver a girar: ${esc(nombreVisible(k.f && k.f.n))}">${titulos[i]}</button>`).join('')}</div>` : '';
     }
   }
   if(e.tipo === 'ruleta'){
@@ -1658,6 +1671,8 @@ function eventos(){
     }
   });
   cont.addEventListener('change', ev => {
+    const vis = ev.target.closest('[data-visible]');
+    if(vis) return update(vis.closest('.tarjeta').dataset.el, { visible:vis.checked });
     const chk = ev.target.closest('[data-opc-check]');
     if(chk){
       const id = chk.closest('.tarjeta').dataset.el;

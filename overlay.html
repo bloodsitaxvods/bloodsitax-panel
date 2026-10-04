@@ -132,6 +132,21 @@ body.guias .el{outline:3px dashed #FF007F}
 .vot .carta.gana{transform:translateY(-14px) scale(1.07)}
 .vot .carta.gana .marco{border-color:#FFFFFF;box-shadow:inset 0 0 0 3px #FF007F, 0 0 0 4px #FF007F, 0 0 60px rgba(255,0,127,.95)}
 
+/* Chat en el overlay */
+.chatov{width:100%;height:100%;box-sizing:border-box;padding:16px 18px;border-radius:26px;overflow:hidden;
+  background:rgba(13,13,13,.8);border:3px solid #FF007F;box-shadow:inset 0 0 0 2px rgba(255,194,220,.45), 0 0 30px rgba(255,0,127,.35);
+  display:flex;flex-direction:column;justify-content:flex-end}
+.chatov-lista{display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:0;overflow:hidden;
+  font-size:22px;line-height:1.35;color:#FFFFFF;overflow-wrap:anywhere}
+.chatov .msg{flex:none;animation:entraMsg .3s ease-out;text-shadow:0 1px 2px #000}
+@keyframes entraMsg{from{opacity:0;transform:translateY(10px)}}
+.chatov .msg b{font-weight:800}
+.chatov .sep{margin-right:2px}
+.chatov .insignia{width:22px;height:22px;vertical-align:-4px;margin-right:4px}
+.chatov .emote{height:30px;vertical-align:-8px;margin:0 1px}
+.chatov .voto-tag{display:inline-grid;place-items:center;min-width:26px;height:26px;margin-left:8px;border-radius:50%;
+  background:#FF007F;color:#FFFFFF;font-size:15px;font-weight:800;vertical-align:2px;box-shadow:0 0 0 2px #FFC2DC}
+
 /* Horóscopo */
 .horo{--k:1;position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:calc(var(--k)*18px);
   padding:calc(var(--k)*34px) calc(var(--k)*38px);color:#FFFFFF;border-radius:34px;
@@ -501,6 +516,138 @@ function luzDesempate(cartas, des, st){
   }, Math.max(0, final)));
 }
 
+/* ---------- Chat de Twitch en el overlay ---------- */
+// Se conecta directo al chat (solo lectura) mientras el elemento está visible,
+// y se desconecta solo cuando lleva un rato oculto. No pasa nada por Firebase.
+const CANAL_TWITCH = 'bloodsitax';
+const INSIGNIAS_GLOBALES = {
+  broadcaster:'5527c58c-fb7d-422d-b71b-f309dcb85cc1', moderator:'3267646d-33f0-4b17-b3df-f923a41db1d0',
+  vip:'b817aba4-fad8-49e2-b88a-7cc744dfa6ec', subscriber:'5d9f2208-5dd8-11e7-8513-2ff4adfae661',
+  founder:'511b78a9-ab37-472f-9569-457753bbe7d3', partner:'d12a2e27-16f6-41d0-ab77-b780518f00a3',
+  premium:'bbbe0db0-a598-423e-86d0-f9fb98ca1933', turbo:'bd444ec6-8f34-4bf9-91f4-af1e3428d80f',
+  staff:'d97c37bd-a6f5-4c38-8f57-4e4bef88af34'
+};
+const MAX_MENSAJES = 40;
+const ChatOv = {
+  ws:null, quiere:false, intento:0, listas:new Set(), insignias:{}, cargadas:false, votKey:0, votantes:new Set(),
+  conectar(){
+    this.quiere = true;
+    if(this.ws) return;
+    const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    this.ws = ws;
+    ws.onopen = () => {
+      ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      ws.send('PASS SCHMOOPIIE');
+      ws.send('NICK justinfan' + (10000 + Math.floor(Math.random() * 89999)));
+      ws.send('JOIN #' + CANAL_TWITCH);
+      this.intento = 0;
+    };
+    ws.onmessage = ev => String(ev.data).split('\r\n').forEach(l => { if(l) this.linea(l); });
+    ws.onclose = () => {
+      this.ws = null;
+      if(this.quiere) setTimeout(() => { if(this.quiere) this.conectar(); }, Math.min(15000, 1000 * 2 ** this.intento++));
+    };
+    if(!this.cargadas) this.cargarInsignias();
+  },
+  desconectar(){ this.quiere = false; if(this.ws) this.ws.close(); },
+  async cargarInsignias(){
+    this.cargadas = true;
+    const leer = json => {
+      const sets = Array.isArray(json) ? json : (json && (json.data || json.badge_sets)) || [];
+      for(const s of (Array.isArray(sets) ? sets : [])){
+        const set = s.set_id || s.setID || s.id;
+        for(const v of (s.versions || [])){
+          const url = v.image_url_2x || v.image_url_1x || v.imageURL || v.image_url;
+          if(set && url) (this.insignias[set] = this.insignias[set] || {})[String(v.id)] = url;
+        }
+      }
+    };
+    try{ const r = await fetch('https://api.ivr.fi/v2/twitch/badges/global'); if(r.ok) leer(await r.json()); }catch{}
+    try{ const r = await fetch('https://api.ivr.fi/v2/twitch/badges/channel?login=' + CANAL_TWITCH); if(r.ok) leer(await r.json()); }catch{}
+  },
+  urlInsignia(set, ver){
+    const s = this.insignias[set];
+    if(s && (s[ver] || s['0'] || s['1'])) return s[ver] || s['0'] || s['1'];
+    return INSIGNIAS_GLOBALES[set] ? `https://static-cdn.jtvnw.net/badges/v1/${INSIGNIAS_GLOBALES[set]}/2` : '';
+  },
+  linea(l){
+    if(l.startsWith('PING')){ if(this.ws) this.ws.send('PONG :tmi.twitch.tv'); return; }
+    let tags = {}, resto = l;
+    if(l[0] === '@'){
+      const sp = l.indexOf(' ');
+      for(const kv of l.slice(1, sp).split(';')){
+        const i = kv.indexOf('=');
+        tags[kv.slice(0, i)] = kv.slice(i + 1).replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\');
+      }
+      resto = l.slice(sp + 1);
+    }
+    const m = /^(?::(\S+) )?(\S+)(?: ([^:][^ ]*))?(?: :(.*))?$/.exec(resto);
+    if(!m) return;
+    const [, prefijo = '', comando, , texto = ''] = m;
+    if(comando === 'PRIVMSG') this.mensaje(tags, prefijo.split('!')[0], texto);
+    else if(comando === 'CLEARCHAT' || comando === 'CLEARMSG') this.borrar(tags, texto);
+  },
+  // Si un mod borra mensajes o banea a alguien, también desaparecen del overlay
+  borrar(tags, texto){
+    this.listas.forEach(lst => {
+      if(tags['target-msg-id']) lst.querySelectorAll(`[data-id="${CSS.escape(tags['target-msg-id'])}"]`).forEach(n => n.remove());
+      else if(tags['target-user-id']) lst.querySelectorAll(`[data-u="${CSS.escape(tags['target-user-id'])}"]`).forEach(n => n.remove());
+      else if(!texto) lst.innerHTML = '';
+    });
+  },
+  mensaje(tags, login, texto){
+    if(!this.listas.size) return;
+    let msg = texto;
+    const accion = /^\u0001ACTION (.*)\u0001$/.exec(msg);
+    if(accion) msg = accion[1];
+    const usuario = tags['user-id'] || login;
+    // Marca de voto: mismas reglas que el panel (solo la letra, un voto por persona en cada votación)
+    let marca = '';
+    const v = (elementos['dbd-killer-votacion'] || {}).vot;
+    const limpio = msg.trim();
+    if(v && v.fase === 'votando' && /^[abcd]$/i.test(limpio) && ahora() < v.fin){
+      if(this.votKey !== v.fin){ this.votKey = v.fin; this.votantes.clear(); }
+      if(!this.votantes.has(usuario)){ this.votantes.add(usuario); marca = `<span class="voto-tag">${limpio.toUpperCase()}</span>`; }
+    }
+    const insignias = (tags.badges || '').split(',').filter(Boolean).map(b => {
+      const [set, ver] = b.split('/'), url = this.urlInsignia(set, ver);
+      return url ? `<img class="insignia" src="${url}" alt="" onerror="this.remove()">` : '';
+    }).join('');
+    const color = /^#[0-9a-f]{6}$/i.test(tags.color || '') ? tags.color : '#FFC2DC';
+    const html = `${insignias}<b style="color:${color}">${esc(tags['display-name'] || login)}</b>${marca}<span class="sep">:</span> ${conEmotes(msg, tags.emotes)}`;
+    this.listas.forEach(lst => {
+      const div = document.createElement('div');
+      div.className = 'msg'; div.innerHTML = html;
+      if(tags.id) div.dataset.id = tags.id;
+      div.dataset.u = usuario;
+      lst.append(div);
+      while(lst.children.length > MAX_MENSAJES) lst.firstElementChild.remove();
+    });
+  }
+};
+function conEmotes(texto, emotesTag){
+  const cps = Array.from(texto), rangos = [];
+  (emotesTag || '').split('/').forEach(p => {
+    const [id, pos] = p.split(':'); if(!id || !pos) return;
+    pos.split(',').forEach(r => { const [a, b] = r.split('-').map(Number); if(!isNaN(a) && !isNaN(b)) rangos.push({ a, b, id }); });
+  });
+  rangos.sort((x, y) => x.a - y.a);
+  let html = '', i = 0;
+  for(const r of rangos){
+    if(r.a < i) continue;
+    html += esc(cps.slice(i, r.a).join(''));
+    html += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(r.id)}/default/dark/2.0" alt="${esc(cps.slice(r.a, r.b + 1).join(''))}">`;
+    i = r.b + 1;
+  }
+  return html + esc(cps.slice(i).join(''));
+}
+function crearChat(c){
+  c.innerHTML = '<div class="chatov"><div class="chatov-lista"></div></div>';
+  ChatOv.listas.add(c.querySelector('.chatov-lista'));
+}
+function actualizarChat(c, e){ if(e.visible) ChatOv.conectar(); }
+function liberarChat(c){ ChatOv.desconectar(); c.querySelector('.chatov-lista').innerHTML = ''; }
+
 /* ---------- Horóscopo ---------- */
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function fechaBonita(f){
@@ -545,7 +692,8 @@ const TIPOS = {
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
-  votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada }
+  votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
+  chat: { crear: crearChat, actualizar: actualizarChat, liberar: liberarChat }
 };
 
 const nodos = {}, ultimoT = {};
