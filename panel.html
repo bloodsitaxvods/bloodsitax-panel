@@ -113,6 +113,12 @@ a{color:var(--rosa)}
 .opcion select{background:var(--negro);border:1px solid var(--linea);border-radius:8px;padding:6px 10px;color:var(--blanco);font:inherit}
 .resultado{margin:10px 0 0;font-size:13px;color:var(--tenue)}
 .resultado strong{color:var(--rosa)}
+.res-fila{display:grid;grid-template-columns:78px 1fr auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--linea)}
+.res-fila:first-child{border-top:0}
+.res-tit{color:var(--tenue);font-size:12px;font-weight:700}
+.res-nom{color:var(--blanco);font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.res-fila .btn{padding:5px 12px;font-size:13px}
+.opcion input[type=checkbox]{accent-color:var(--neon)}
 .disponible{margin:8px 0 0;font-size:13px;color:var(--tenue)}
 .disponible.falta{color:var(--blanco);background:rgba(255,0,127,.16);border:1px solid var(--neon);border-radius:10px;padding:8px 12px}
 
@@ -290,8 +296,12 @@ const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Esco
 const PESTANAS = [
   { id:'marvel', nombre:'Marvel', elementos:['marvel-random'] },
   { id:'dbd', nombre:'DBD', sub:[
-      { id:'killer', nombre:'Killer', elementos:['dbd-killer-random','dbd-killer-votacion'] },
-      { id:'survi',  nombre:'Survi',  elementos:['dbd-survi-random','dbd-survi-votacion'] } ] },
+      { id:'killer', nombre:'Killer', sub:[
+          { id:'random',   nombre:'Killer random',   elementos:['dbd-killer-random'] },
+          { id:'votacion', nombre:'Votación killer', elementos:['dbd-killer-votacion'] } ] },
+      { id:'survi', nombre:'Survi', sub:[
+          { id:'random',   nombre:'Survi random',    elementos:['dbd-survi-random'] },
+          { id:'votacion', nombre:'Votación survi',  elementos:['dbd-survi-votacion'] } ] } ] },
   { id:'sorteo', nombre:'Sorteo', elementos:['sorteo-ruleta'] },
   { id:'retos', nombre:'Retos', elementos:['retos-ruleta-chica','retos-ruleta-grande'] },
   { id:'horoscopo', nombre:'Horóscopo', elementos:['horoscopo'] },
@@ -472,8 +482,8 @@ function fila(campo, etiqueta, min, max, unidad){
     <input type="range" data-campo="${campo}" min="${min}" max="${max}" step="1" aria-label="${etiqueta}">
     <span class="num"><input type="number" data-campo="${campo}" min="${min}" max="${max}" step="1" aria-label="${etiqueta}"><em>${unidad}</em></span></div>`;
 }
-function bloqueAjustes(abierto){
-  return `<details class="ajustes" ${abierto ? 'open' : ''}>
+function bloqueAjustes(id){
+  return `<details class="ajustes" data-ajustes="${id}" ${leerLS('bsx-ajustes-' + id) === '1' ? 'open' : ''}>
       <summary>Posición y tamaño</summary>
       <div class="ajustes-cuerpo">
         <div class="rejilla">${NOMBRES_POS.map((n,i) => `<button class="pos" data-pos="${i}" title="${n}" aria-label="${n}"><i></i></button>`).join('')}</div>
@@ -505,7 +515,7 @@ function tarjeta(id){
         <button class="btn" data-act="ocultar">Ocultar</button>
         <button class="btn quitar" data-act="eliminar">Eliminar</button>
       </div>
-      ${bloqueAjustes(false)}
+      ${bloqueAjustes(id)}
     </article>`;
   }
   let cuerpo;
@@ -514,8 +524,9 @@ function tarjeta(id){
     const opciones = marvel
       ? `<label class="opcion">Personajes <select data-opc="cantidad">${[1,2,3,4,5,6].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
          <label class="opcion">Grupo <select data-opc="grupo"><option value="">Todos</option></select></label>`
-      : `<label class="opcion">Perks <select data-opc="perks">${[0,1,2,3,4].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>`;
-    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="tirar">Random</button><button class="btn" data-act="ocultar">Ocultar</button></div>
+      : `<label class="opcion">Perks <select data-opc="perks">${[0,1,2,3,4].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
+         <label class="opcion"><input type="checkbox" data-opc-check="nombresPerks"> Mostrar nombres de perks</label>`;
+    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar</button><button class="btn" data-act="ocultar">Ocultar</button></div>
       <div class="opciones">${opciones}</div>
       <p class="disponible" data-disponible></p>
       <p class="resultado" data-resultado></p>`;
@@ -544,7 +555,7 @@ function tarjeta(id){
   return `<article class="tarjeta" data-el="${id}">
     <header class="tarjeta-cab"><h3>${esc(e.nombre)}</h3>${pill}</header>
     ${cuerpo}
-    ${bloqueAjustes(true)}
+    ${bloqueAjustes(id)}
   </article>`;
 }
 function bloqueImagenes(){
@@ -566,16 +577,21 @@ function bloqueImagenes(){
     </div>
     <div id="listaImagenes"></div>`;
 }
+// Sub-pestañas de cualquier nivel (DBD > Killer > Killer random, etc.)
+function subpestanas(prefijo, subs){
+  let html = `<div class="tabs subtabs" role="tablist">` + subs.map((s, j) =>
+    `<button class="tab" role="tab" data-subtab="${prefijo}:${s.id}" aria-selected="${j === 0}">${s.nombre}</button>`).join('') + `</div>`;
+  html += subs.map((s, j) => `<div data-subpanel="${prefijo}:${s.id}" ${j ? 'hidden' : ''}>${
+    s.sub ? subpestanas(`${prefijo}:${s.id}`, s.sub) : (s.elementos || []).map(tarjeta).join('')}</div>`).join('');
+  return html;
+}
 function construir(){
   const nav = $('#tabs'), cont = $('#paneles');
   PESTANAS.forEach((p, i) => {
     nav.insertAdjacentHTML('beforeend', `<button class="tab" role="tab" data-tab="${p.id}" aria-selected="${i === 0}">${p.nombre}</button>`);
     let html = `<div class="panel" data-panel="${p.id}" ${i ? 'hidden' : ''}>`;
-    if(p.sub){
-      html += `<div class="tabs subtabs" role="tablist">` + p.sub.map((s, j) =>
-        `<button class="tab" role="tab" data-subtab="${p.id}:${s.id}" aria-selected="${j === 0}">${s.nombre}</button>`).join('') + `</div>`;
-      html += p.sub.map((s, j) => `<div data-subpanel="${p.id}:${s.id}" ${j ? 'hidden' : ''}>${s.elementos.map(tarjeta).join('')}</div>`).join('');
-    } else html += p.elementos.map(tarjeta).join('');
+    if(p.sub) html += subpestanas(p.id, p.sub);
+    else html += p.elementos.map(tarjeta).join('');
     if(p.imagenes) html += bloqueImagenes();
     if(p.catalogo) html += bloqueCatalogo();
     cont.insertAdjacentHTML('beforeend', html + '</div>');
@@ -587,16 +603,28 @@ function activarTab(tab){
   if(tab === 'catalogo') Cat.alMostrar();
 }
 function activarSub(clave){
-  const [tab] = clave.split(':');
-  document.querySelectorAll(`[data-subtab^="${tab}:"]`).forEach(b => b.setAttribute('aria-selected', b.dataset.subtab === clave));
-  document.querySelectorAll(`[data-subpanel^="${tab}:"]`).forEach(p => p.hidden = p.dataset.subpanel !== clave);
-  if(tab === 'catalogo') Cat.alMostrar();
+  const partes = clave.split(':'), padre = partes.slice(0, -1).join(':'), nivel = partes.length;
+  const hermano = k => k.startsWith(padre + ':') && k.split(':').length === nivel;
+  document.querySelectorAll('[data-subtab]').forEach(b => { if(hermano(b.dataset.subtab)) b.setAttribute('aria-selected', b.dataset.subtab === clave); });
+  document.querySelectorAll('[data-subpanel]').forEach(p => { if(hermano(p.dataset.subpanel)) p.hidden = p.dataset.subpanel !== clave; });
+  if(partes[0] === 'catalogo') Cat.alMostrar();
+}
+function buscarRuta(subs, id, prefijo){
+  for(const s of subs){
+    const clave = `${prefijo}:${s.id}`;
+    if((s.elementos || []).includes(id)) return [clave];
+    if(s.sub){ const r = buscarRuta(s.sub, id, clave); if(r) return [clave, ...r]; }
+  }
+  return null;
 }
 function irA(id){
   if(estado[id] && estado[id].tipo === 'imagen') activarTab('random');
   for(const p of PESTANAS){
     if((p.elementos || []).includes(id)) activarTab(p.id);
-    if(p.sub) for(const s of p.sub) if(s.elementos.includes(id)){ activarTab(p.id); activarSub(`${p.id}:${s.id}`); }
+    if(p.sub){
+      const ruta = buscarRuta(p.sub, id, p.id);
+      if(ruta){ activarTab(p.id); ruta.forEach(activarSub); }
+    }
   }
   const t = document.querySelector(`.tarjeta[data-el="${id}"]`);
   if(t) t.scrollIntoView({ block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
@@ -656,9 +684,17 @@ function pintarTarjeta(id){
     disp.textContent = falta || txt;
     disp.classList.toggle('falta', !!falta);
     t.querySelector('[data-act="tirar"]').disabled = !!falta;
-    const cartas = lista(e.datos && e.datos.cartas);
-    t.querySelector('[data-resultado]').innerHTML = cartas.length
-      ? 'Resultado: <strong>' + cartas.map(k => esc(k.f && k.f.n)).join(', ') + '</strong>' : '';
+    t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = o[c.dataset.opcCheck] !== false; });
+    const cartas = lista(e.datos && e.datos.cartas), res = t.querySelector('[data-resultado]');
+    const firma = cartas.map(k => k.f && k.f.i).join('|');
+    if(res._firma !== firma){
+      res._firma = firma;
+      let nPerk = 0, nPers = 0;
+      res.innerHTML = cartas.map((k, i) => {
+        const tit = k.p ? `Perk ${++nPerk}` : (j.perks ? CATEGORIAS[j.personaje].nombre.replace(/s$/, '') : `Personaje ${++nPers}`);
+        return `<div class="res-fila"><span class="res-tit">${tit}</span><span class="res-nom">${esc(nombreVisible(k.f && k.f.n))}</span><button class="btn" data-cambiar="${i}">Cambiar</button></div>`;
+      }).join('');
+    }
   }
   if(e.tipo === 'ruleta'){
     const d = e.datos || {}, ops = d.opciones || [], g = d.giro;
@@ -863,7 +899,7 @@ function rellenar(arr, k){
 function refCat(c, id, conNombre){
   const e = Cat.indice[c][id], r = { c, i:id };
   if(e.u) r.u = e.u;
-  if(conNombre){ r.n = e.n; if(e.g) r.g = e.g; }
+  if(conNombre){ r.n = nombreVisible(e.n); if(e.g) r.g = e.g; }
   return r;
 }
 function tirar(id){
@@ -874,11 +910,11 @@ function tirar(id){
     if(!pers.length) return toast(`Agrega ${CATEGORIAS[j.personaje].nombre.toLowerCase()} en Catálogo`);
     if(perks.length < nPerks) return toast(`Faltan perks activos en ${CATEGORIAS[j.perks].nombre}`);
     const fin = pers[randInt(pers.length)];
-    cartas.push({ g:1, f:refCat(j.personaje, fin, true),
+    cartas.push({ f:refCat(j.personaje, fin, true),
       s:rellenar(muestra(pers.filter(x => x !== fin), SENUELOS), SENUELOS).map(x => refCat(j.personaje, x)) });
     const elegidas = muestra(perks, nPerks);
     const pozo = muestra(perks.filter(x => !elegidas.includes(x)), SENUELOS + 4);
-    for(const p of elegidas) cartas.push({ f:refCat(j.perks, p, true), s:rellenar(barajar(pozo), SENUELOS).map(x => refCat(j.perks, x)) });
+    for(const p of elegidas) cartas.push({ p:1, f:refCat(j.perks, p, true), s:rellenar(barajar(pozo), SENUELOS).map(x => refCat(j.perks, x)) });
   } else {
     let pers = Cat.activos(j.personaje);
     if(o.grupo) pers = pers.filter(x => (Cat.indice[j.personaje][x].g || '') === o.grupo);
@@ -886,9 +922,27 @@ function tirar(id){
     if(pers.length < n) return toast(pers.length ? `Solo hay ${pers.length} personajes activos con ese filtro` : 'Agrega personajes de Marvel en Catálogo');
     const elegidos = muestra(pers, n);
     const pozo = muestra(pers.filter(x => !elegidos.includes(x)), SENUELOS + 4);
-    for(const p of elegidos) cartas.push({ g:1, f:refCat(j.personaje, p, true), s:rellenar(barajar(pozo.length ? pozo : elegidos), SENUELOS).map(x => refCat(j.personaje, x)) });
+    for(const p of elegidos) cartas.push({ f:refCat(j.personaje, p, true), s:rellenar(barajar(pozo.length ? pozo : elegidos), SENUELOS).map(x => refCat(j.personaje, x)) });
   }
   update(id, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas } });
+}
+// Vuelve a sortear solo una carta. Nunca repite lo que ya está en las otras cartas de su tipo.
+function cambiarCarta(id, k){
+  const e = estado[id], d = e.datos; if(!d) return;
+  const cartas = lista(d.cartas).map(x => ({ ...x }));
+  const c = cartas[k]; if(!c || !c.f) return;
+  const cat = c.f.c, o = e.opc || {};
+  const usados = new Set(cartas.filter(x => x.f && x.f.c === cat).map(x => x.f.i));
+  let candidatos = Cat.activos(cat);
+  if(ELEMENTOS[id].juego === 'marvel' && o.grupo) candidatos = candidatos.filter(x => (Cat.indice[cat][x].g || '') === o.grupo);
+  const libres = candidatos.filter(x => !usados.has(x));
+  if(!libres.length) return toast('No quedan opciones distintas para esta carta');
+  const nuevo = libres[randInt(libres.length)];
+  const pozo = muestra(candidatos.filter(x => x !== nuevo), SENUELOS);
+  const carta = { f:refCat(cat, nuevo, true), s:rellenar(pozo.length ? pozo : [nuevo], SENUELOS).map(x => refCat(cat, x)), r:Date.now(), ini:ahora() + 600 };
+  if(c.p) carta.p = 1;
+  cartas[k] = carta;
+  update(id, { visible:true, datos:{ ...d, cartas } });
 }
 
 /* ---------- Almacenamiento local (modo sin Firebase) ---------- */
@@ -916,6 +970,10 @@ const idb = {
 };
 
 /* ---------- Catálogo ---------- */
+// Para reconocer el mismo elemento aunque cambie "_", "-" o espacios en el nombre del archivo
+const claveNombre = n => String(n || '').toLowerCase().replace(/[_\-\s]+/g, ' ').trim();
+// Cómo se muestra un nombre: los "_" se leen como espacio
+const nombreVisible = n => String(n || '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
 // Índice (nombres, activo, grupo, link) separado de las imágenes:
 // el panel solo descarga el índice y cada imagen se pide cuando hace falta.
 const Cat = {
@@ -964,7 +1022,7 @@ const Cat = {
   },
   porNombre(c){
     const m = new Map();
-    for(const id in this.indice[c]) m.set(this.indice[c][id].n.toLowerCase(), id);
+    for(const id in this.indice[c]) m.set(claveNombre(this.indice[c][id].n), id);
     return m;
   },
   progreso(c, txt){ const el = document.querySelector(`[data-cat="${c}"] [data-progreso]`); if(el) el.textContent = txt; },
@@ -978,8 +1036,8 @@ const Cat = {
       for(const f of files){
         try{
           const r = await comprimir(f, CATEGORIAS[c].lado, 160000);
-          const n = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) || 'Sin nombre';
-          const previo = nombres.get(n.toLowerCase());
+          const n = f.name.replace(/\.[^.]+$/, '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) || 'Sin nombre';
+          const previo = nombres.get(claveNombre(n));
           const id = previo || idAleatorio(10);
           const viejo = previo ? this.indice[c][previo] : null;
           const entrada = { n, a: viejo ? (viejo.a ?? 1) : 1 };
@@ -987,7 +1045,7 @@ const Cat = {
           lote[`catalogo/${c}/indice/${id}`] = entrada;
           lote[`catalogo/${c}/img/${id}`] = r.src;
           this.cache.delete(c + '/' + id);
-          nombres.set(n.toLowerCase(), id);
+          nombres.set(claveNombre(n), id);
           previo ? reemplazos++ : nuevos++;
         }catch{ errores++; }
         hechos++;
@@ -1005,14 +1063,14 @@ const Cat = {
       if(!linea.trim()) continue;
       const [nombre, url, grupo] = linea.split('|').map(x => (x || '').trim());
       if(!nombre || !/^https?:\/\//i.test(url || '')){ malas++; continue; }
-      const id = nombres.get(nombre.toLowerCase()) || idAleatorio(10);
+      const id = nombres.get(claveNombre(nombre)) || idAleatorio(10);
       const viejo = this.indice[c][id];
       const entrada = { n:nombre.slice(0, 50), u:url, a: viejo ? (viejo.a ?? 1) : 1 };
       if(grupo) entrada.g = grupo; else if(viejo && viejo.g) entrada.g = viejo.g;
       up[`catalogo/${c}/indice/${id}`] = entrada;
       up[`catalogo/${c}/img/${id}`] = null;
       this.cache.delete(c + '/' + id);
-      nombres.set(nombre.toLowerCase(), id); n++;
+      nombres.set(claveNombre(nombre), id); n++;
     }
     if(!n) return this.progreso(c, 'No encontré líneas válidas. Formato: Nombre | link | grupo');
     try{ await this.escribir(up); this.progreso(c, `Listo: ${n} agregados${malas ? `, ${malas} líneas ignoradas` : ''}.`); return true; }
@@ -1280,6 +1338,7 @@ function eventos(){
     }
     const t = ev.target.closest('.tarjeta[data-el]'); if(!t) return;
     const id = t.dataset.el;
+    const cb = ev.target.closest('[data-cambiar]'); if(cb) return cambiarCarta(id, +cb.dataset.cambiar);
     const a = ev.target.closest('[data-act]'); if(a) return accion(id, a.dataset.act);
     const p = ev.target.closest('[data-pos]'); if(p) return posRapida(id, +p.dataset.pos);
     const s = ev.target.closest('[data-signo]');
@@ -1290,6 +1349,11 @@ function eventos(){
     }
   });
   cont.addEventListener('change', ev => {
+    const chk = ev.target.closest('[data-opc-check]');
+    if(chk){
+      const id = chk.closest('.tarjeta').dataset.el;
+      return update(id, { opc:{ ...(estado[id].opc || {}), [chk.dataset.opcCheck]:chk.checked } });
+    }
     const sel = ev.target.closest('[data-opc]');
     if(sel){
       const id = sel.closest('.tarjeta').dataset.el, k = sel.dataset.opc;
@@ -1379,6 +1443,11 @@ function eventos(){
     ev.preventDefault();
     update(seleccionado, { x: clamp(e.x + m[0], 0, ANCHO), y: clamp(e.y + m[1], 0, ALTO) });
   });
+
+  document.addEventListener('toggle', ev => {
+    const d = ev.target;
+    if(d.matches && d.matches('details[data-ajustes]')) guardarLS('bsx-ajustes-' + d.dataset.ajustes, d.open ? '1' : '0');
+  }, true);
 
   $('#ocultarTodo').addEventListener('click', () => {
     for(const id in estado) if(estado[id].visible) update(id, { visible:false });
