@@ -62,19 +62,38 @@ body.guias .el{outline:3px dashed #FF007F}
 .tirada{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
 .tirada-vacia{color:#FFC2DC;font-weight:800;font-size:calc(var(--u)*48px);text-shadow:0 2px 8px #000}
 .carta{display:flex;flex-direction:column;align-items:center;flex:none}
-.marco{position:relative;width:100%;overflow:hidden;box-sizing:border-box;border-radius:18px;background:#0D0D0D;
-  border:4px solid #FFC2DC;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.marco{position:relative;width:100%;box-sizing:border-box;border-radius:18px;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%, #2a1520 0%, #0D0D0D 70%);
+  border:4px solid #FFC2DC;box-shadow:0 10px 26px rgba(0,0,0,.6);transition:border-color .25s, box-shadow .25s}
+.ventana{position:absolute;inset:0;overflow:hidden}
+.ventana.girando{animation:desenfoque var(--dur) linear forwards}
+@keyframes desenfoque{0%{filter:none}10%{filter:blur(2.5px)}70%{filter:blur(1.2px)}100%{filter:none}}
 .tira{will-change:transform}
 .cuadro{display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:8%}
 .cuadro img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 .cuadro span{display:none;color:#FFFFFF;font-weight:800;text-align:center;line-height:1.15;font-size:16px}
 .cuadro.sin-img span{display:block}
+/* Sombra arriba y abajo de la ventana, como un tragamonedas */
+.marco::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;transition:opacity .4s;
+  background:linear-gradient(to bottom, rgba(13,13,13,.75), transparent 24%, transparent 76%, rgba(13,13,13,.75))}
+/* Destello que cruza la carta al frenar */
+.marco::before{content:'';position:absolute;top:-10%;bottom:-10%;left:0;width:45%;z-index:3;pointer-events:none;opacity:0;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,.5), transparent);transform:translateX(-150%) skewX(-12deg)}
 .carta.lista .marco{border-color:#FF007F;box-shadow:inset 0 0 0 3px #FFC2DC, 0 0 30px rgba(255,0,127,.75);animation:golpe .45s cubic-bezier(.2,1.6,.4,1)}
-@keyframes golpe{0%{transform:scale(1)}40%{transform:scale(1.07)}100%{transform:scale(1)}}
-.nombre{margin-top:12px;max-width:100%;box-sizing:border-box;padding:6px 14px;border-radius:999px;text-align:center;
-  background:rgba(13,13,13,.9);border:2px solid #FF007F;color:#FFFFFF;font-weight:800;line-height:1.15;overflow-wrap:anywhere;
+.carta.lista .marco::after{opacity:0}
+.carta.lista .marco::before{animation:destello .8s ease-out .05s}
+@keyframes golpe{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes destello{0%{opacity:1;transform:translateX(-150%) skewX(-12deg)}100%{opacity:0;transform:translateX(320%) skewX(-12deg)}}
+/* Nombre del personaje: grande y claro */
+.nombre{margin-top:14px;max-width:125%;box-sizing:border-box;padding:6px 18px;border-radius:999px;text-align:center;
+  background:rgba(13,13,13,.92);border:2px solid #FF007F;color:#FFFFFF;font-weight:800;line-height:1.12;overflow-wrap:anywhere;
   opacity:0;transform:translateY(10px);transition:opacity .35s ease, transform .35s ease}
-.nombre small{display:block;color:#FFC2DC;font-weight:700;font-size:.72em}
+.nombre small{display:block;color:#FFC2DC;font-weight:700;font-size:.62em;margin-top:2px}
+/* Nombre de perk: más sutil, máximo dos líneas para que no choquen */
+.nombre.perk{width:100%;max-width:100%;margin-top:10px;padding:0;border:0;border-radius:0;background:none;
+  font-weight:700;color:rgba(255,255,255,.92);line-height:1.18;text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.85);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.36em}
+.sin-nombres-perk .nombre.perk{visibility:hidden}
 .carta.lista .nombre{opacity:1;transform:none}
 
 /* Horóscopo */
@@ -254,71 +273,102 @@ function precargar(src){
 const conLimite = (p, ms) => Promise.race([p, new Promise(ok => setTimeout(ok, ms))]);
 const lista = v => Array.isArray(v) ? v.filter(x => x != null) : (v ? Object.values(v) : []);
 
-/* ---------- Randoms con cartas ---------- */
-// Cada carta es una tira vertical de imágenes que se desliza y frena en el resultado.
-// Solo se anima una propiedad (transform), así que el costo es mínimo.
-function crearTirada(c){ c.innerHTML = '<div class="tirada"></div>'; c._tirada = { clave:null, token:0, timers:[] }; }
+/* ---------- Randoms con cartas (tragamonedas) ---------- */
+// Cada carta es una ventana con una tira vertical de imágenes que se desliza y frena en el resultado.
+// Solo se anima transform (y un desenfoque corto en una ventana pequeña), así que es muy ligero.
+const PROP = 1.38, ESC_PERK = .85;
+const nombreVisible = n => String(n || '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
+const framesDe = k => [...lista(k.s), ...lista(k.s), k.f]; // la tira se recorre dos veces sin descargar más
+const cuadrosHTML = (frames, H) => frames.map(f => `<div class="cuadro" style="height:${H}px"><img alt=""><span>${esc(nombreVisible(f.n))}</span></div>`).join('');
+function nombreHTML(k, fsP, fsK){
+  return k.p
+    ? `<div class="nombre perk" style="font-size:${fsK}px">${esc(nombreVisible(k.f.n))}</div>`
+    : `<div class="nombre" style="font-size:${fsP}px">${esc(nombreVisible(k.f.n))}${k.f.g ? `<small>${esc(k.f.g)}</small>` : ''}</div>`;
+}
+function ponerImagenes(cuadros, frames){
+  return conLimite(Promise.all(cuadros.map((q, j) => srcCatalogo(frames[j]).then(src => {
+    const img = q.querySelector('img');
+    if(src && img){ img.src = src; return precargar(src); }
+    if(img) img.remove();
+    q.classList.add('sin-img');
+  }))), 2500);
+}
+function girarTira(el, inicio, dur, st){
+  const tira = el.querySelector('.tira'), ven = el.querySelector('.ventana');
+  const n = tira.children.length, H = tira.firstElementChild.offsetHeight;
+  const destino = `translateY(${-(n - 1) * H}px)`;
+  el.classList.remove('lista');
+  tira.style.transition = 'none';
+  if(ahora() > inicio + dur){ tira.style.transform = destino; el.classList.add('lista'); return; }
+  tira.style.transform = 'translateY(0)';
+  void tira.offsetHeight;
+  st.timers.push(setTimeout(() => {
+    ven.style.setProperty('--dur', dur + 'ms');
+    ven.classList.remove('girando'); void ven.offsetWidth; ven.classList.add('girando');
+    tira.style.transition = `transform ${dur}ms cubic-bezier(.1,.75,.18,1.02)`;
+    tira.style.transform = destino;
+    st.timers.push(setTimeout(() => { ven.classList.remove('girando'); el.classList.add('lista'); }, dur));
+  }, Math.max(0, inicio - ahora())));
+}
+function crearTirada(c){ c.innerHTML = '<div class="tirada"></div>'; c._tirada = { clave:null, token:0, timers:[], rs:[] }; }
 function actualizarTirada(c, e){
-  const st = c._tirada, d = e.datos;
+  const st = c._tirada, d = e.datos, cont = c.firstChild;
+  cont.classList.toggle('sin-nombres-perk', !!(e.opc && e.opc.nombresPerks === false));
   const clave = d && d.cartas ? d.t : 0;
-  if(clave === st.clave) return;
-  st.clave = clave;
-  const tok = ++st.token;
-  st.timers.forEach(clearTimeout); st.timers = [];
-  const cont = c.firstChild;
-  if(!clave){ cont.innerHTML = `<div class="tirada-vacia">${esc(e.nombre)}</div>`; return; }
-  armarTirada(cont, e, d, tok, st);
+  if(clave !== st.clave){
+    st.clave = clave; st.token++;
+    st.timers.forEach(clearTimeout); st.timers = [];
+    if(!clave){ cont.innerHTML = `<div class="tirada-vacia">${esc(e.nombre)}</div>`; st.rs = []; return; }
+    st.rs = lista(d.cartas).map(k => k.r || 0);
+    armarTirada(cont, e, d, st.token, st);
+    return;
+  }
+  if(!clave) return;
+  // Cambio de una sola carta desde el panel
+  lista(d.cartas).forEach((k, i) => { const r = k.r || 0; if(r !== st.rs[i]){ st.rs[i] = r; regirar(cont, i, k, st); } });
 }
 async function armarTirada(cont, e, d, tok, st){
-  const cartas = lista(d.cartas);
-  const GAP = 22, PAD = 28, GR = 1.6, PROP = 1.38;
-  const grandes = cartas.filter(k => k.g).length, chicas = cartas.length - grandes;
-  // Tamaño de carta que cabe a lo ancho y a lo alto del elemento
-  let u = (e.w - PAD * 2 - GAP * (cartas.length - 1)) / (grandes * GR + chicas);
-  u = Math.min(u, (e.h - PAD * 2) / ((grandes ? GR * PROP : 1) + .42), 190);
-  const fs = Math.max(14, Math.round(u * .14));
+  const cartas = lista(d.cartas), PAD = 28, GAP = 26;
+  const escalas = cartas.map(k => k.p ? ESC_PERK : 1), suma = escalas.reduce((a, b) => a + b, 0);
+  let W = (e.w - PAD * 2 - GAP * (cartas.length - 1)) / suma;
+  W = Math.min(W, (e.h - PAD * 2) / (PROP + .34), 360);
+  const fsP = Math.max(14, Math.round(W * .115)), fsK = Math.max(12, Math.round(W * ESC_PERK * .075));
   cont.style.gap = GAP + 'px';
-  cont.innerHTML = cartas.map(k => {
-    const W = k.g ? u * GR : u, H = k.g ? W * PROP : W;
-    const cuadros = [...lista(k.s), k.f];
-    return `<div class="carta" style="width:${W}px"><div class="marco" style="height:${H}px"><div class="tira">${
-      cuadros.map(f => `<div class="cuadro" style="height:${H}px"><img alt=""><span>${esc(f.n || '')}</span></div>`).join('')
-    }</div></div><div class="nombre" style="font-size:${fs}px">${esc(k.f.n)}${k.f.g ? `<small>${esc(k.f.g)}</small>` : ''}</div></div>`;
+  cont.innerHTML = cartas.map((k, i) => {
+    const w = W * escalas[i], h = w * PROP;
+    return `<div class="carta${k.p ? ' es-perk' : ''}" style="width:${w}px"><div class="marco" style="height:${h}px"><div class="ventana"><div class="tira">${cuadrosHTML(framesDe(k), h)}</div></div></div>${nombreHTML(k, fsP, fsK)}</div>`;
   }).join('');
-
-  // Precarga: solo las imágenes de esta tirada (resultado + imágenes de paso)
-  const tareas = [];
-  cont.querySelectorAll('.carta').forEach((el, i) => {
-    const cuadros = [...lista(cartas[i].s), cartas[i].f];
-    el.querySelectorAll('.cuadro').forEach((q, j) => {
-      tareas.push(srcCatalogo(cuadros[j]).then(src => {
-        const img = q.firstChild;
-        if(src){ img.src = src; return precargar(src); }
-        img.remove(); q.classList.add('sin-img');
-      }));
-    });
-  });
-  await conLimite(Promise.all(tareas), 2500);
+  const els = [...cont.querySelectorAll('.carta')];
+  // Precarga solo las imágenes de esta tirada
+  await Promise.all(els.map((el, i) => ponerImagenes([...el.querySelectorAll('.cuadro')], framesDe(cartas[i]))));
   if(tok !== st.token) return;
-
-  const espera = Math.max(0, d.inicio - ahora());
-  cont.querySelectorAll('.carta').forEach((el, i) => {
-    const tira = el.querySelector('.tira'), n = tira.children.length, H = tira.firstChild.offsetHeight;
-    const dur = 1500 + i * 420;
-    const destino = `translateY(${-(n - 1) * H}px)`;
-    if(ahora() > d.inicio + dur){ tira.style.transform = destino; el.classList.add('lista'); return; }
-    tira.style.transform = 'translateY(0)';
-    st.timers.push(setTimeout(() => {
-      tira.style.transition = `transform ${dur}ms cubic-bezier(.12,.8,.2,1.02)`;
-      tira.style.transform = destino;
-      st.timers.push(setTimeout(() => el.classList.add('lista'), dur));
-    }, espera));
+  // Todas arrancan juntas y frenan en cascada de izquierda a derecha
+  els.forEach((el, i) => {
+    const k = cartas[i];
+    if(k.r) girarTira(el, k.ini || d.inicio, 1600, st);
+    else girarTira(el, d.inicio, 1700 + i * 380, st);
   });
 }
-// Al liberar, se quitan las imágenes de paso y queda solo el resultado
+async function regirar(cont, i, k, st){
+  const el = cont.querySelectorAll('.carta')[i]; if(!el) return;
+  const tok = st.token, mio = el._tok = (el._tok || 0) + 1;
+  const tira = el.querySelector('.tira'), H = tira.firstElementChild.offsetHeight;
+  const actual = tira.lastElementChild.cloneNode(true);
+  const frames = framesDe(k);
+  el.classList.remove('lista');
+  tira.style.transition = 'none'; tira.style.transform = 'translateY(0)';
+  tira.innerHTML = ''; tira.append(actual);
+  tira.insertAdjacentHTML('beforeend', cuadrosHTML(frames, H));
+  await ponerImagenes([...tira.children].slice(1), frames);
+  if(tok !== st.token || mio !== el._tok) return;
+  const nom = el.querySelector('.nombre');
+  nom.innerHTML = esc(nombreVisible(k.f.n)) + (!k.p && k.f.g ? `<small>${esc(k.f.g)}</small>` : '');
+  girarTira(el, k.ini || ahora(), 1600, st);
+}
+// Al liberar memoria, cada tira conserva solo su resultado
 function liberarTirada(c){
   c.querySelectorAll('.tira').forEach(t => {
-    while(t.children.length > 1) t.firstChild.remove();
+    while(t.children.length > 1) t.firstElementChild.remove();
     t.style.transition = 'none'; t.style.transform = 'none';
   });
 }
