@@ -312,8 +312,8 @@ const ELEMENTOS = {
   'dbd-survi-random':    { nombre:'Survi random',       tipo:'tirada', juego:'survi',  w:1100, h:560, x:960, y:540 },
   'dbd-survi-votacion':  { nombre:'Votación de survi',  accion:'Votación',       w:1500, h:640, x:960,  y:560 },
   'sorteo-ruleta':       { nombre:'Ruleta de sorteo',   tipo:'ruleta',           w:760,  h:760, x:960,  y:540 },
-  'retos-ruleta-chica':  { nombre:'Ruleta pequeña',     accion:'Ruleta pequeña', w:440,  h:440, x:1640, y:780 },
-  'retos-ruleta-grande': { nombre:'Ruleta grande',      accion:'Ruleta grande',  w:820,  h:820, x:960,  y:540 },
+  'retos-ruleta-chica':  { nombre:'Ruleta pequeña',     tipo:'ruleta', estilo:'rosa', w:440,  h:440, x:1640, y:780 },
+  'retos-ruleta-grande': { nombre:'Ruleta grande',      tipo:'ruleta', estilo:'rosa', w:820,  h:820, x:960,  y:540 },
   'perks-votacion':      { nombre:'Perks del ganador',  tipo:'tirada', juego:'perksKiller', w:1000, h:380, x:960, y:880 },
   'chat-votacion':       { nombre:'Chat en el overlay', tipo:'chat',  w:520, h:640, x:1620, y:560 },
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 }
@@ -392,6 +392,7 @@ const ahora = () => Date.now() + desfaseServidor;
 function porDefecto(id){
   const d = ELEMENTOS[id];
   const base = { nombre:d.nombre, tipo:d.tipo || 'prueba', w:d.w, h:d.h, x:d.x, y:d.y, escala:1, rot:0, opacidad:1, capa:1, visible:false, datos:null };
+  if(d.estilo) base.estilo = d.estilo;
   if(d.juego) base.opc = d.juego === 'marvel' ? { cantidad:1, grupo:'' } : { perks:4 };
   if(d.tipo === 'votacion') base.opc = { dur:20 };
   return base;
@@ -443,7 +444,7 @@ const Sync = {
       for(const id in ELEMENTOS){
         const p = porDefecto(id);
         if(!v[id]) up[id] = p;
-        else if(v[id].tipo !== p.tipo){ up[`${id}/tipo`] = p.tipo; up[`${id}/w`] = p.w; up[`${id}/h`] = p.h; }
+        else if(v[id].tipo !== p.tipo){ up[`${id}/tipo`] = p.tipo; up[`${id}/w`] = p.w; up[`${id}/h`] = p.h; if(p.estilo) up[`${id}/estilo`] = p.estilo; }
       }
       if(Object.keys(up).length) ref.update(up).catch(e => toast('No se pudo preparar la sala: ' + e.message));
     });
@@ -548,13 +549,14 @@ function tarjeta(id){
   }
   let cuerpo;
   if(e.tipo === 'chat'){
-    cuerpo = `<label class="opcion grande-check"><input type="checkbox" data-visible> Mostrar chat en el overlay</label>
+    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="mostrar">Mostrar</button><button class="btn grande" data-act="ocultar">Ocultar</button></div>
       <p class="nota">Muestra el chat de #${CANAL_TWITCH} con emotes y emblemas. El overlay se conecta solo cuando está visible, y marca los votos durante la votación.</p>`;
   } else if(e.tipo === 'votacion'){
     cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="acciones">
         <button class="btn principal grande" data-act="vgirar">Girar</button>
         <button class="btn grande" data-act="vreset">Resetear y girar todo</button>
+        <button class="btn" data-act="mostrar">Mostrar</button>
         <button class="btn" data-act="ocultar">Ocultar</button>
       </div>
       <p class="disponible" data-disponible></p>
@@ -583,9 +585,8 @@ function tarjeta(id){
          <label class="opcion"><input type="checkbox" data-opc-check="nombresPerks"> Mostrar nombres de perks</label>`;
     const soloPerks = !!(JUEGOS[d.juego] || {}).soloPerks;
     cuerpo = (soloPerks
-      ? `<label class="opcion grande-check"><input type="checkbox" data-visible> Mostrar perks en el overlay</label>
-         <div class="acciones" style="margin-top:12px"><button class="btn principal grande" data-act="tirar">Girar perks</button></div>`
-      : `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar</button><button class="btn" data-act="ocultar">Ocultar</button></div>`) + `
+      ? `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar perks</button><button class="btn" data-act="mostrar">Mostrar</button><button class="btn" data-act="ocultar">Ocultar</button></div>`
+      : `<div class="acciones"><button class="btn principal grande" data-act="tirar">Girar</button><button class="btn" data-act="mostrar">Mostrar</button><button class="btn" data-act="ocultar">Ocultar</button></div>`) + `
       <div class="opciones">${opciones}</div>
       <p class="disponible" data-disponible></p>
       <p class="resultado" data-resultado></p>
@@ -604,13 +605,13 @@ function tarjeta(id){
       </div>`;
   } else if(d.signos){
     cuerpo = `<div class="signos">${SIGNOS.map(s => `<button class="btn signo" data-signo="${s}">${s}</button>`).join('')}</div>
-      <div class="acciones"><button class="btn" data-act="ocultar">Ocultar</button></div>
+      <div class="acciones"><button class="btn" data-act="mostrar">Mostrar</button><button class="btn" data-act="ocultar">Ocultar</button></div>
       <div class="horo-carga">
         <label class="btn principal archivo">Subir horóscopo del día<input type="file" accept=".json,application/json" data-horo-archivo></label>
         <p class="nota" data-horo-estado>Aún no hay horóscopo cargado.</p>
       </div>`;
   } else {
-    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="lanzar">${d.accion}</button><button class="btn" data-act="ocultar">Ocultar</button></div>`;
+    cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="lanzar">${d.accion}</button><button class="btn" data-act="mostrar">Mostrar</button><button class="btn" data-act="ocultar">Ocultar</button></div>`;
   }
   return `<article class="tarjeta" data-el="${id}">
     <header class="tarjeta-cab"><h3>${esc(e.nombre)}</h3>${pill}</header>
@@ -756,8 +757,13 @@ function pintarTarjeta(id){
     t.querySelector('[data-act="tirar"]').disabled = !!falta;
     t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = o[c.dataset.opcCheck] !== false; });
     const cartas = lista(e.datos && e.datos.cartas), res = t.querySelector('[data-resultado]');
-    const firma = cartas.map(k => k.f && k.f.i).join('|');
-    if(res._firma !== firma){
+    const enEspera = !!(e.datos && e.datos.espera);
+    const firma = (enEspera ? 'e:' : '') + cartas.map(k => k.f && k.f.i).join('|');
+    if(res._firma !== firma && enEspera){
+      res._firma = firma;
+      res.innerHTML = `<div class="res-fila"><span class="res-tit">Estado</span><span class="res-nom">Cartas en espera. Dale a Girar.</span></div>`;
+      const caja = t.querySelector('[data-regirar-tirada]'); caja.hidden = true; caja.innerHTML = '';
+    } else if(res._firma !== firma){
       res._firma = firma;
       let nPerk = 0, nPers = 0;
       const titulos = cartas.map(k => k.p ? `Perk ${++nPerk}` : (j.perks ? CATEGORIAS[j.personaje].nombre.replace(/s$/, '') : `Personaje ${++nPers}`));
@@ -967,6 +973,40 @@ function rellenar(arr, k){
   return out.slice(0, k);
 }
 
+/* ---------- Imagen de espera ---------- */
+// Cualquier imagen del catálogo llamada "espera" o "espera1", "espera2"... se usa para mostrar
+// las cartas antes de girar. Nunca sale en un random.
+const esEspera = n => /^espera\s*\d*$/.test(claveNombre(n));
+function refEspera(cat){
+  const buscar = c => {
+    const idx = Cat.indice[c] || {}, ids = Object.keys(idx).filter(id => esEspera(idx[id].n));
+    ids.sort((a, b) => (claveNombre(idx[a].n) === 'espera1' ? -1 : 0) - (claveNombre(idx[b].n) === 'espera1' ? -1 : 0));
+    return ids.length ? refCat(c, ids[0]) : null;
+  };
+  return buscar(cat) || Object.keys(CATEGORIAS).map(buscar).find(Boolean) || { c:cat, i:'', n:'?' };
+}
+function cartasEspera(id){
+  const j = JUEGOS[ELEMENTOS[id].juego], o = estado[id].opc || {}, cartas = [];
+  if(j.soloPerks) for(let i = 0; i < clamp(o.perks || 4, 1, 4); i++) cartas.push({ e:1, p:1, f:refEspera(j.perks) });
+  else if(j.perks){
+    cartas.push({ e:1, f:refEspera(j.personaje) });
+    for(let i = 0; i < clamp(o.perks ?? 4, 0, 4); i++) cartas.push({ e:1, p:1, f:refEspera(j.perks) });
+  } else for(let i = 0; i < clamp(o.cantidad || 1, 1, 6); i++) cartas.push({ e:1, f:refEspera(j.personaje) });
+  return cartas;
+}
+function mostrarEspera(id){ update(id, { visible:true, datos:{ t:Date.now(), espera:1, cartas:cartasEspera(id) } }); }
+function mostrarEsperaVotacion(){
+  Vot.limpiar();
+  const cartas = [0, 1, 2, 3].map(() => ({ e:1, f:refEspera('killers') }));
+  update(VOT_ID, { visible:true, datos:{ t:Date.now(), espera:1, cartas }, vot:{ fase:'listo' } });
+}
+// Si las cartas estaban en espera, el giro arranca desde esa imagen
+function desdeEspera(id, cartas){
+  const prev = estado[id].datos;
+  if(prev && prev.espera) cartas.forEach((k, i) => { const pk = lista(prev.cartas)[i]; if(pk && pk.f && pk.f.i) k.a = pk.f; });
+  return cartas;
+}
+
 /* ---------- Randoms con animación ---------- */
 // Referencia ligera a una imagen del catálogo: solo lo necesario para que el overlay la pida.
 function refCat(c, id, conNombre){
@@ -1003,7 +1043,7 @@ function tirar(id){
     const pozo = muestra(pers.filter(x => !elegidos.includes(x)), SENUELOS + 4);
     for(const p of elegidos) cartas.push({ f:refCat(j.personaje, p, true), s:rellenar(barajar(pozo.length ? pozo : elegidos), SENUELOS).map(x => refCat(j.personaje, x)) });
   }
-  update(id, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas } });
+  update(id, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas:desdeEspera(id, cartas) } });
 }
 // Vuelve a sortear solo una carta. Nunca repite lo que ya está en las otras cartas de su tipo.
 function cambiarCarta(id, k){
@@ -1160,7 +1200,7 @@ function girarVotacion(forzar){
   const elegidos = muestra(kill, 4);
   const pozo = muestra(kill.filter(x => !elegidos.includes(x)), SENUELOS + 4);
   const cartas = elegidos.map(x => ({ f:refCat('killers', x, true), s:rellenar(barajar(pozo.length ? pozo : elegidos), SENUELOS).map(y => refCat('killers', y)) }));
-  update(VOT_ID, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas }, vot:{ fase:'listo' } });
+  update(VOT_ID, { visible:true, datos:{ t:Date.now(), inicio:ahora() + ESPERA_TIRADA, cartas:desdeEspera(VOT_ID, cartas) }, vot:{ fase:'listo' } });
 }
 const Vot = {
   votantes:new Map(), conteo:{ A:0, B:0, C:0, D:0 }, activo:false, reloj:0, sucio:false,
@@ -1250,13 +1290,13 @@ function pintarVotacion(t, e){
   const filas = t.querySelector('[data-vot-filas]'), firma = cartas.map(k => k.f && k.f.i).join('|');
   if(filas._firma !== firma){
     filas._firma = firma;
-    filas.innerHTML = cartas.map((k, i) => `<div class="res-fila vfila"><span class="vletra">${LETRAS[i]}</span><span class="res-nom">${esc(nombreVisible(k.f && k.f.n))}</span><span class="vconteo" data-vconteo="${i}"></span></div>`).join('');
+    filas.innerHTML = cartas.map((k, i) => `<div class="res-fila vfila"><span class="vletra">${LETRAS[i]}</span><span class="res-nom">${k.e ? 'En espera' : esc(nombreVisible(k.f && k.f.n))}</span><span class="vconteo" data-vconteo="${i}"></span></div>`).join('');
   }
   filas.querySelectorAll('[data-vconteo]').forEach(s => {
     const n = votos[LETRAS[+s.dataset.vconteo]] || 0;
     s.textContent = v.fase === 'listo' ? '' : `${n} (${tot ? Math.round(n * 100 / tot) : 0}%)`;
   });
-  t.querySelectorAll('[data-regirar]').forEach(b => b.disabled = cartas.length < 4 || v.fase === 'desempate');
+  t.querySelectorAll('[data-regirar]').forEach(b => b.disabled = cartas.length < 4 || v.fase === 'desempate' || !!(d && d.espera));
   filas.querySelectorAll('.vfila').forEach((f, i) => f.classList.toggle('gana', v.fase === 'ganador' && v.ganador === i));
 
   let txt;
@@ -1266,10 +1306,10 @@ function pintarVotacion(t, e){
     case 'ganador': txt = `Ganador: ${nom(v.ganador)} con ${votos[LETRAS[v.ganador]] || 0} de ${tot} votos.`; break;
     case 'empate': txt = `Empate entre ${lista(v.empatados).map(i => LETRAS[i]).join(', ')} con ${(() => { const n = votos[LETRAS[lista(v.empatados)[0]]] || 0; return n + (n === 1 ? ' voto' : ' votos'); })()} cada uno. Usa Desempatar.`; break;
     case 'desempate': txt = 'Desempatando...'; break;
-    default: txt = cartas.length ? 'Listo. Dale a Empezar votación.' : 'Dale a Girar para sacar 4 killers.';
+    default: txt = d && d.espera ? 'Cartas en espera. Dale a Girar para sacar los 4 killers.' : cartas.length ? 'Listo. Dale a Empezar votación.' : 'Dale a Girar para sacar 4 killers.';
   }
   t.querySelector('[data-vot-estado]').textContent = txt;
-  t.querySelector('[data-act="viniciar"]').disabled = cartas.length < 4 || v.fase !== 'listo';
+  t.querySelector('[data-act="viniciar"]').disabled = cartas.length < 4 || v.fase !== 'listo' || !!(d && d.espera);
   t.querySelector('[data-act="vdetener"]').disabled = v.fase !== 'votando';
   t.querySelector('[data-act="vdesempatar"]').disabled = v.fase !== 'empate';
   const est = t.querySelector('[data-chat-estado]');
@@ -1325,7 +1365,7 @@ const Cat = {
     if(this.visible(c)) this.pintarGrid(c);
     for(const id in estado) if(estado[id].tipo === 'tirada') pintarTarjeta(id);
   },
-  activos(c){ return Object.keys(this.indice[c] || {}).filter(id => this.indice[c][id].a !== 0); },
+  activos(c){ return Object.keys(this.indice[c] || {}).filter(id => this.indice[c][id].a !== 0 && !esEspera(this.indice[c][id].n)); },
   grupos(c){ return [...new Set(Object.values(this.indice[c] || {}).map(e => e.g).filter(Boolean))].sort(); },
   // Escribe rutas "catalogo/<cat>/indice/<id>" y "catalogo/<cat>/img/<id>"
   async escribir(up){
@@ -1503,7 +1543,7 @@ const Cat = {
       const e = idx[id];
       return `<div class="item ${e.a === 0 ? 'inactivo' : ''}" data-id="${id}">
         <button class="item-img" data-it="alternar" title="${e.a === 0 ? 'Inactivo: clic para activar' : 'Activo: clic para desactivar'}"><img alt="" data-lazy></button>
-        <div class="item-nombre">${esc(e.n)}</div>${e.g ? `<div class="item-grupo">${esc(e.g)}</div>` : ''}
+        <div class="item-nombre">${esc(e.n)}</div>${esEspera(e.n) ? '<div class="item-grupo">Imagen de espera</div>' : e.g ? `<div class="item-grupo">${esc(e.g)}</div>` : ''}
         <div class="item-acc"><button data-it="editar">Editar</button><button data-it="borrar">Borrar</button></div>
       </div>`;
     }).join('') : `<p class="vacio-texto">${filtro ? 'Nada coincide con la búsqueda.' : 'Aún no hay nada aquí. Sube imágenes o agrega links.'}</p>`;
@@ -1624,7 +1664,13 @@ function accion(id, act){
     case 'viniciar': return Vot.iniciar();
     case 'vdetener': return Vot.cerrar();
     case 'vdesempatar': return Vot.desempatar();
-    case 'mostrar': return update(id, { visible:true });
+    case 'mostrar': {
+      const tipo = estado[id].tipo;
+      if(tipo === 'tirada') return mostrarEspera(id);
+      if(tipo === 'votacion') return mostrarEsperaVotacion();
+      if(tipo === 'horoscopo' && !(estado[id].datos && estado[id].datos.h)) return toast('Primero elige un signo');
+      return update(id, { visible:true });
+    }
     case 'ocultar': return update(id, { visible:false });
     case 'girar': return girar(id);
     case 'mezclar': return mezclarLista(id);
