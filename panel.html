@@ -316,7 +316,8 @@ const ELEMENTOS = {
   'retos-ruleta-grande': { nombre:'Ruleta grande',      tipo:'ruleta', estilo:'rosa', w:820,  h:820, x:960,  y:540 },
   'perks-votacion':      { nombre:'Perks del ganador',  tipo:'tirada', juego:'perksKiller', w:1000, h:380, x:960, y:880 },
   'chat-votacion':       { nombre:'Chat en el overlay', tipo:'chat',  w:520, h:640, x:1620, y:560 },
-  'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 }
+  'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 },
+  'lista-jugadores':     { nombre:'Lista para jugar',   tipo:'lista', w:480, h:640, x:300, y:540 }
 };
 const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
 const PESTANAS = [
@@ -332,6 +333,7 @@ const PESTANAS = [
   { id:'retos', nombre:'Retos', elementos:['retos-ruleta-chica','retos-ruleta-grande'] },
   { id:'horoscopo', nombre:'Horóscopo', elementos:['horoscopo'] },
   { id:'random', nombre:'Random', elementos:[], imagenes:true },
+  { id:'lista', nombre:'Lista', elementos:['lista-jugadores'] },
   { id:'catalogo', nombre:'Catálogo', elementos:[], catalogo:true }
 ];
 // Categorías del catálogo. lado = tamaño máximo al que se comprime cada imagen.
@@ -548,7 +550,16 @@ function tarjeta(id){
     </article>`;
   }
   let cuerpo;
-  if(e.tipo === 'chat'){
+  if(e.tipo === 'lista'){
+    cuerpo = `<div class="form-fila"><input class="campo" data-jug-titulo maxlength="40" placeholder="Título (por ejemplo: Siguen en jugar)"></div>
+      <textarea class="lista" data-jug placeholder="Un nombre por línea, en el orden en que van a jugar" aria-label="Nombres de la lista"></textarea>
+      <div class="lista-info"><span data-jug-conteo>0 en la lista</span></div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="mostrar">Mostrar</button>
+        <button class="btn grande" data-act="ocultar">Ocultar</button>
+        <button class="btn" data-act="lsiguiente">Ya jugó el primero</button>
+      </div>`;
+  } else if(e.tipo === 'chat'){
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="mostrar">Mostrar</button><button class="btn grande" data-act="ocultar">Ocultar</button></div>
       <p class="nota">Muestra el chat de #${CANAL_TWITCH} con emotes y emblemas. El overlay se conecta solo cuando está visible, y marca los votos durante la votación.</p>`;
   } else if(e.tipo === 'votacion'){
@@ -714,6 +725,14 @@ function pintarTarjeta(id){
   });
   t.querySelectorAll('[data-signo]').forEach(b => b.classList.toggle('activo', !!e.visible && !!e.datos && e.datos.signo === b.dataset.signo));
   t.querySelectorAll('[data-visible]').forEach(c => { c.checked = !!e.visible; });
+  if(e.tipo === 'lista'){
+    const d = e.datos || {}, nombres = lista(d.nombres);
+    const ta = t.querySelector('[data-jug]'), ti = t.querySelector('[data-jug-titulo]');
+    if(ta !== document.activeElement) ta.value = nombres.join('\n');
+    if(ti !== document.activeElement) ti.value = d.titulo ?? 'Siguen en jugar';
+    t.querySelector('[data-jug-conteo]').textContent = `${nombres.length} en la lista`;
+    t.querySelector('[data-act="lsiguiente"]').disabled = !nombres.length;
+  }
   if(e.tipo === 'votacion'){
     t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? ''); });
     pintarVotacion(t, e);
@@ -1658,6 +1677,12 @@ function accion(id, act){
   switch(act){
     case 'lanzar': return update(id, { visible:true, datos:{ accion:d.accion, t:Date.now() } });
     case 'tirar': return tirar(id);
+    case 'lsiguiente': {
+      const d = estado[id].datos || {}, nombres = lista(d.nombres);
+      if(!nombres.length) return;
+      toast(`${nombres[0]} salió de la lista`);
+      return update(id, { datos:{ titulo:d.titulo ?? 'Siguen en jugar', nombres:nombres.slice(1) } });
+    }
     case 'chat': return Chat.alternar();
     case 'vgirar': return girarVotacion(false);
     case 'vreset': return Vot.resetearYGirar();
@@ -1772,6 +1797,16 @@ function eventos(){
   cont.addEventListener('input', ev => {
     const bus = ev.target.closest('[data-buscar]');
     if(bus){ clearTimeout(bus._t); bus._t = setTimeout(() => Cat.pintarGrid(bus.closest('[data-cat]').dataset.cat), 200); return; }
+    const jug = ev.target.closest('[data-jug], [data-jug-titulo]');
+    if(jug){
+      const id = jug.closest('.tarjeta').dataset.el, t = jug.closest('.tarjeta');
+      const nombres = t.querySelector('[data-jug]').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 100);
+      const titulo = t.querySelector('[data-jug-titulo]').value.trim();
+      t.querySelector('[data-jug-conteo]').textContent = `${nombres.length} en la lista`;
+      clearTimeout(t._jt);
+      t._jt = setTimeout(() => update(id, { datos:{ titulo, nombres } }), 350);
+      return;
+    }
     const ta = ev.target.closest('[data-lista]');
     if(ta){
       const id = ta.closest('.tarjeta').dataset.el, ops = leerLista(ta.value);

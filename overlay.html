@@ -151,6 +151,21 @@ body.guias .el{outline:3px dashed #FF007F}
 .chatov .voto-tag{display:inline-grid;place-items:center;min-width:26px;height:26px;margin-left:8px;border-radius:50%;
   background:#FF007F;color:#FFFFFF;font-size:15px;font-weight:800;vertical-align:2px;box-shadow:0 0 0 2px #FFC2DC}
 
+/* Lista para jugar */
+.fila-jug{width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:.6em;padding:1.1em 1.1em 1em;color:#FFFFFF;
+  border-radius:28px;background:rgba(13,13,13,.88);border:5px solid #FF007F;box-shadow:inset 0 0 0 3px #FFC2DC, 0 0 34px rgba(255,0,127,.4)}
+.fila-tit{font-size:1.25em;font-weight:800;color:#FFC2DC;text-align:center;line-height:1.1;padding-bottom:.45em;border-bottom:2px solid rgba(255,194,220,.35)}
+.fila-nombres{list-style:none;margin:0;padding:0;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:.38em}
+.fila-nombres li{display:flex;align-items:center;gap:.55em;flex:none;animation:entraMsg .35s ease-out}
+.fila-nombres .num{flex:none;width:1.65em;height:1.65em;border-radius:50%;display:grid;place-items:center;font-size:.8em;font-weight:800;
+  background:rgba(255,194,220,.18);color:#FFC2DC;border:2px solid rgba(255,194,220,.5)}
+.fila-nombres .nom{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila-nombres li.primero{background:#FF007F;border-radius:999px;padding:.25em .9em .25em .3em;box-shadow:0 0 18px rgba(255,0,127,.6)}
+.fila-nombres li.primero .num{background:#FFFFFF;color:#FF007F;border-color:#FFFFFF}
+.fila-nombres li.primero .nom{font-weight:800}
+.fila-nombres .vacia{color:rgba(255,255,255,.55);font-weight:700;justify-content:center}
+.fila-nombres .mas{color:#FFC2DC;font-weight:700;font-size:.85em;justify-content:center}
+
 /* Horóscopo */
 .horo{--k:1;position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:calc(var(--k)*18px);
   padding:calc(var(--k)*34px) calc(var(--k)*38px);color:#FFFFFF;border-radius:34px;
@@ -672,6 +687,31 @@ function crearChat(c){
 function actualizarChat(c, e){ if(e.visible) ChatOv.conectar(); }
 function liberarChat(c){ ChatOv.desconectar(); c.querySelector('.chatov-lista').innerHTML = ''; }
 
+/* ---------- Lista para jugar ---------- */
+function dibujarLista(c, e){
+  const d = e.datos || {}, nombres = lista(d.nombres), titulo = d.titulo ?? 'Siguen en jugar';
+  const firma = JSON.stringify([titulo, nombres, e.w, e.h]);
+  if(c._firma === firma) return;
+  c._firma = firma;
+  const fs = Math.round(e.w * .056);
+  c.innerHTML = `<div class="fila-jug" style="font-size:${fs}px">
+    ${titulo ? `<div class="fila-tit">${esc(titulo)}</div>` : ''}
+    <ol class="fila-nombres">${nombres.length
+      ? nombres.map((n, i) => `<li class="${i === 0 ? 'primero' : ''}"><span class="num">${i + 1}</span><span class="nom">${esc(n)}</span></li>`).join('')
+      : '<li class="vacia">La lista está vacía</li>'}</ol>
+  </div>`;
+  // Si no caben todos, se muestran los primeros y un aviso de cuántos faltan
+  const ol = c.querySelector('.fila-nombres'), items = [...ol.children];
+  if(ol.scrollHeight > ol.clientHeight + 1 && nombres.length){
+    const mas = document.createElement('li'); mas.className = 'mas'; ol.append(mas);
+    let ocultos = 0;
+    while(ol.scrollHeight > ol.clientHeight + 1 && items.length - ocultos > 1){
+      items[items.length - 1 - ocultos].remove(); ocultos++;
+      mas.textContent = `y ${ocultos} más`;
+    }
+  }
+}
+
 /* ---------- Horóscopo ---------- */
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function fechaBonita(f){
@@ -717,7 +757,8 @@ const TIPOS = {
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
   votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
-  chat: { crear: crearChat, actualizar: actualizarChat, liberar: liberarChat }
+  chat: { crear: crearChat, actualizar: actualizarChat, liberar: liberarChat },
+  lista: { crear: dibujarLista, actualizar: dibujarLista }
 };
 
 const nodos = {}, ultimoT = {};
