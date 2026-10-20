@@ -166,6 +166,19 @@ body.guias .el{outline:3px dashed #FF007F}
 .fila-nombres .vacia{color:rgba(255,255,255,.55);font-weight:700;justify-content:center}
 .fila-nombres .mas{color:#FFC2DC;font-weight:700;font-size:.85em;justify-content:center}
 
+/* Votaciones (encuesta) */
+.enc{justify-content:flex-start;gap:14px}
+.enc-pregunta{max-width:100%;text-align:center;font-size:44px;font-weight:800;color:#FFFFFF;line-height:1.1;
+  text-shadow:0 2px 6px #000, 0 0 18px rgba(255,0,127,.6);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.enc-pregunta[hidden]{display:none}
+.enc-cartas{display:grid;justify-content:center}
+.enc-carta .marco{display:flex;align-items:center;background:linear-gradient(160deg,#2a1520 0%,#0D0D0D 75%)}
+.enc-carta .letra{top:50%;left:12px;transform:translateY(-50%);aspect-ratio:1}
+.enc-texto{position:relative;z-index:1;box-sizing:border-box;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  padding:10px 14px;text-align:center;font-weight:800;color:#FFFFFF;line-height:1.15;overflow:hidden;overflow-wrap:anywhere;text-shadow:0 1px 3px #000}
+.enc-carta .marco::after{display:none}
+.reloj.largo span{font-size:27px}
+
 /* Horóscopo */
 .horo{--k:1;position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:calc(var(--k)*18px);
   padding:calc(var(--k)*34px) calc(var(--k)*38px);color:#FFFFFF;border-radius:34px;
@@ -467,7 +480,7 @@ function liberarTirada(c){
 }
 
 /* ---------- Votación de killer ---------- */
-const LETRAS = 'ABCD', VUELTA_RELOJ = 251.33; // perímetro del círculo del temporizador (r = 40)
+const LETRAS = 'ABCDEFGH', VUELTA_RELOJ = 251.33; // perímetro del círculo del temporizador (r = 40)
 function crearVotacion(c){
   c.innerHTML = `<div class="vot fase-listo">
     <div class="vot-cab">
@@ -492,7 +505,8 @@ function actualizarVotacion(c, e){
   c.firstChild.classList.toggle('sin-votos', !!(e.opc && e.opc.verVotos === false));
   aplicarVoto(c, st, e.vot || { fase:'listo' });
 }
-function aplicarVoto(c, st, v){
+function aplicarVoto(c, st, v, cfg){
+  cfg = cfg || { titulo:'Votación de killer', votando:'Vota en el chat: A, B, C o D' };
   const raiz = c.firstChild, cartas = [...c.querySelectorAll('.vot-cartas .carta')];
   for(const f of ['listo','votando','empate','desempate','ganador']) raiz.classList.toggle('fase-' + f, (v.fase || 'listo') === f);
   const votos = v.votos || {}, tot = LETRAS.split('').reduce((s, l) => s + (votos[l] || 0), 0);
@@ -507,7 +521,7 @@ function aplicarVoto(c, st, v){
     el.classList.toggle('apagada',
       (v.fase === 'ganador' && v.ganador !== i) || (v.fase === 'empate' && !emp.includes(i)) || (v.fase === 'desempate' && !desL.includes(i)));
   });
-  const texto = { listo:'Votación de killer', votando:'Vota en el chat: A, B, C o D', empate:'Empate', desempate:'Desempate', ganador:'Ganador' }[v.fase] || 'Votación de killer';
+  const texto = { listo:cfg.titulo, votando:cfg.votando, empate:'Empate', desempate:'Desempate', ganador:'Ganador' }[v.fase] || cfg.titulo;
   raiz.querySelector('.vot-estado').textContent = texto;
 
   // Temporizador: el círculo se anima solo con CSS y el número se actualiza 4 veces por segundo
@@ -521,7 +535,8 @@ function aplicarVoto(c, st, v){
       clearInterval(st.seg);
       const pintarSeg = () => {
         const s = Math.max(0, Math.ceil((v.fin - ahora()) / 1000));
-        num.textContent = s;
+        num.textContent = s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : s;
+        reloj.classList.toggle('largo', s >= 60);
         reloj.classList.toggle('urgente', s <= 5);
         if(s <= 0) clearInterval(st.seg);
       };
@@ -642,9 +657,13 @@ const ChatOv = {
     const usuario = tags['user-id'] || login;
     // Marca de voto: mismas reglas que el panel (solo la letra, un voto por persona en cada votación)
     let marca = '';
-    const v = (elementos['dbd-killer-votacion'] || {}).vot;
-    const limpio = msg.trim();
-    if(v && v.fase === 'votando' && /^[abcd]$/i.test(limpio) && ahora() < v.fin){
+    const limpio = msg.trim(), L = limpio.toUpperCase();
+    const enc = elementos['encuesta'] || {}, ve = enc.vot, vk = (elementos['dbd-killer-votacion'] || {}).vot;
+    const nEnc = lista((enc.datos || {}).opciones).length;
+    let v = null;
+    if(ve && ve.fase === 'votando' && ahora() < ve.fin && /^[A-H]$/.test(L) && 'ABCDEFGH'.indexOf(L) < nEnc) v = ve;
+    else if(vk && vk.fase === 'votando' && ahora() < vk.fin && /^[A-D]$/.test(L)) v = vk;
+    if(v){
       if(this.votKey !== v.fin){ this.votKey = v.fin; this.votantes.clear(); }
       if(!this.votantes.has(usuario)){ this.votantes.add(usuario); marca = `<span class="voto-tag">${limpio.toUpperCase()}</span>`; }
     }
@@ -685,7 +704,11 @@ function crearChat(c){
   ChatOv.listas.add(c.querySelector('.chatov-lista'));
 }
 function actualizarChat(c, e){ if(e.visible) ChatOv.conectar(); }
-function liberarChat(c){ ChatOv.desconectar(); c.querySelector('.chatov-lista').innerHTML = ''; }
+function liberarChat(c){
+  const otroVisible = Object.values(elementos || {}).some(x => x && x.tipo === 'chat' && x.visible);
+  if(!otroVisible) ChatOv.desconectar();
+  c.querySelector('.chatov-lista').innerHTML = '';
+}
 
 /* ---------- Lista para jugar ---------- */
 function dibujarLista(c, e){
@@ -710,6 +733,58 @@ function dibujarLista(c, e){
       mas.textContent = `y ${ocultos} más`;
     }
   }
+}
+
+/* ---------- Votaciones (encuesta con texto) ---------- */
+function crearEncuesta(c){
+  c.innerHTML = `<div class="vot enc fase-listo">
+    <div class="enc-pregunta"></div>
+    <div class="vot-cab">
+      <div class="reloj"><svg viewBox="0 0 92 92" aria-hidden="true"><circle class="pista" cx="46" cy="46" r="40"/><circle class="avance" cx="46" cy="46" r="40"/></svg><span>0</span></div>
+      <div class="vot-estado">Votación</div>
+    </div>
+    <div class="vot-cartas enc-cartas"></div>
+  </div>`;
+  c._vot = { fin:0, seg:0, des:'', desTimers:[], firma:'' };
+}
+function actualizarEncuesta(c, e){
+  const st = c._vot, d = e.datos || {}, ops = lista(d.opciones), raiz = c.firstChild;
+  const preg = raiz.querySelector('.enc-pregunta');
+  preg.textContent = d.pregunta || '';
+  preg.hidden = !d.pregunta;
+  const firma = JSON.stringify([ops, d.pregunta || '', e.w, e.h]);
+  if(firma !== st.firma){ st.firma = firma; armarEncuesta(c, e, ops, !!d.pregunta); }
+  raiz.classList.toggle('sin-votos', !!(e.opc && e.opc.verVotos === false));
+  const letras = 'ABCDEFGH'.slice(0, ops.length).split('');
+  aplicarVoto(c, st, e.vot || { fase:'listo' }, {
+    titulo: 'Votación',
+    votando: 'Vota en el chat: ' + (letras.length > 1 ? letras.slice(0, -1).join(', ') + ' o ' + letras[letras.length - 1] : letras.join(''))
+  });
+}
+function armarEncuesta(c, e, ops, conPregunta){
+  const cont = c.querySelector('.enc-cartas'), n = ops.length;
+  if(!n){ cont.innerHTML = ''; return; }
+  const PAD = 20, GAP = 22, GAPF = 18, CAB = 112 + (conPregunta ? 70 : 0), VOTO = 52;
+  const filas = n <= 4 ? 1 : 2, cols = Math.ceil(n / filas);
+  const w = Math.floor((e.w - PAD * 2 - GAP * (cols - 1)) / cols);
+  const hFila = (e.h - CAB - PAD - GAPF * (filas - 1)) / filas;
+  const h = Math.max(70, Math.min(Math.round(hFila - VOTO), Math.round(w * .78)));
+  const letra = Math.round(Math.min(56, Math.max(30, h * .3)));
+  cont.style.gridTemplateColumns = `repeat(${cols}, ${w}px)`;
+  cont.style.columnGap = GAP + 'px'; cont.style.rowGap = GAPF + 'px';
+  cont.innerHTML = ops.map((o, i) => `<div class="carta enc-carta" style="width:${w}px">
+      <div class="marco" style="height:${h}px">
+        <div class="letra" style="width:${letra}px;font-size:${Math.round(letra * .55)}px">${'ABCDEFGH'[i]}</div>
+        <div class="enc-texto" style="padding-left:${letra + 18}px">${esc(o)}</div>
+      </div>
+      <div class="voto"><div class="barra"><i></i></div><div class="pct">0%</div></div>
+    </div>`).join('');
+  // Cada texto toma la letra más grande que quepa en su carta
+  cont.querySelectorAll('.enc-texto').forEach(t => {
+    let fs = Math.min(h * .34, 46);
+    t.style.fontSize = fs + 'px';
+    while((t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1) && fs > 14){ fs -= 2; t.style.fontSize = fs + 'px'; }
+  });
 }
 
 /* ---------- Horóscopo ---------- */
@@ -758,7 +833,8 @@ const TIPOS = {
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
   votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
   chat: { crear: crearChat, actualizar: actualizarChat, liberar: liberarChat },
-  lista: { crear: dibujarLista, actualizar: dibujarLista }
+  lista: { crear: dibujarLista, actualizar: dibujarLista },
+  encuesta: { crear: crearEncuesta, actualizar: actualizarEncuesta }
 };
 
 const nodos = {}, ultimoT = {};
