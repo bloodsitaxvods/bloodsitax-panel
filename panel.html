@@ -316,6 +316,8 @@ const ELEMENTOS = {
   'retos-ruleta-grande': { nombre:'Ruleta grande',      tipo:'ruleta', estilo:'rosa', w:820,  h:820, x:960,  y:540 },
   'perks-votacion':      { nombre:'Perks del ganador',  tipo:'tirada', juego:'perksKiller', w:1000, h:380, x:960, y:880 },
   'chat-votacion':       { nombre:'Chat en el overlay', tipo:'chat',  w:520, h:640, x:1620, y:560 },
+  'encuesta':            { nombre:'Votación',           tipo:'encuesta', w:1300, h:620, x:720, y:560 },
+  'chat-encuesta':       { nombre:'Chat de la votación', tipo:'chat', w:480, h:640, x:1650, y:560 },
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 },
   'lista-jugadores':     { nombre:'Lista para jugar',   tipo:'lista', w:480, h:640, x:300, y:540 }
 };
@@ -334,6 +336,7 @@ const PESTANAS = [
   { id:'horoscopo', nombre:'Horóscopo', elementos:['horoscopo'] },
   { id:'random', nombre:'Random', elementos:[], imagenes:true },
   { id:'lista', nombre:'Lista', elementos:['lista-jugadores'] },
+  { id:'votaciones', nombre:'Votaciones', elementos:['encuesta','chat-encuesta'] },
   { id:'catalogo', nombre:'Catálogo', elementos:[], catalogo:true }
 ];
 // Categorías del catálogo. lado = tamaño máximo al que se comprime cada imagen.
@@ -397,6 +400,7 @@ function porDefecto(id){
   if(d.estilo) base.estilo = d.estilo;
   if(d.juego) base.opc = d.juego === 'marvel' ? { cantidad:1, grupo:'' } : { perks:4 };
   if(d.tipo === 'votacion') base.opc = { dur:20 };
+  if(d.tipo === 'encuesta') base.opc = { dur:30 };
   return base;
 }
 const estado = {};
@@ -562,6 +566,28 @@ function tarjeta(id){
   } else if(e.tipo === 'chat'){
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="mostrar">Mostrar</button><button class="btn grande" data-act="ocultar">Ocultar</button></div>
       <p class="nota">Muestra el chat de #${CANAL_TWITCH} con emotes y emblemas. El overlay se conecta solo cuando está visible, y marca los votos durante la votación.</p>`;
+  } else if(e.tipo === 'encuesta'){
+    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+      <div class="form-fila"><input class="campo" data-enc-pregunta maxlength="80" placeholder="Pregunta o título (opcional)"></div>
+      <textarea class="lista" data-enc placeholder="Una opción por línea (hasta 8). Cada una será una carta: A, B, C..." aria-label="Opciones de la votación"></textarea>
+      <div class="lista-info"><span data-enc-conteo>0 de 8 opciones</span></div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="mostrar">Mostrar</button>
+        <button class="btn grande" data-act="ocultar">Ocultar</button>
+      </div>
+      <div class="vot-filas" data-enc-filas></div>
+      <div class="opciones">
+        <label class="opcion">Duración <select data-opc="dur">${DURACIONES.map(n => `<option value="${n}">${textoDur(n)}</option>`).join('')}</select></label>
+        <label class="opcion"><input type="checkbox" data-opc-check="verVotos"> Mostrar cantidad de votos</label>
+      </div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="einiciar">Empezar votación</button>
+        <button class="btn grande" data-act="edetener">Detener votación</button>
+        <button class="btn grande" data-act="edesempatar">Desempatar</button>
+        <button class="btn" data-act="ereiniciar">Reiniciar votos</button>
+      </div>
+      <p class="vot-estado-panel" data-vot-estado></p>
+      <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'votacion'){
     cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="acciones">
@@ -733,6 +759,7 @@ function pintarTarjeta(id){
     t.querySelector('[data-jug-conteo]').textContent = `${nombres.length} en la lista`;
     t.querySelector('[data-act="lsiguiente"]').disabled = !nombres.length;
   }
+  if(e.tipo === 'encuesta') pintarEncuesta(t, e);
   if(e.tipo === 'votacion'){
     t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? ''); });
     pintarVotacion(t, e);
@@ -1168,10 +1195,13 @@ const Chat = {
     // Voto válido: el mensaje es solo la letra A, B, C o D (mayúscula o minúscula)
     let marca = '';
     const limpio = msg.trim();
-    if(/^[abcd]$/i.test(limpio) && Vot.activo){
-      marca = Vot.voto(usuario, limpio.toUpperCase())
-        ? `<span class="voto-tag">Voto ${limpio.toUpperCase()}</span>` : '<span class="voto-tag rep">Ya votó</span>';
+    const L = limpio.toUpperCase();
+    let ok = null;
+    if(/^[A-H]$/.test(L)){
+      if(Enc.activo && Enc.acepta(L)) ok = Enc.voto(usuario, L);
+      else if(Vot.activo && /^[A-D]$/.test(L)) ok = Vot.voto(usuario, L);
     }
+    if(ok !== null) marca = ok ? `<span class="voto-tag">Voto ${L}</span>` : '<span class="voto-tag rep">Ya votó</span>';
     const insignias = (tags.badges || '').split(',').filter(Boolean).map(b => {
       const [set, ver] = b.split('/'), url = this.urlInsignia(set, ver);
       return url ? `<img class="insignia" src="${url}" alt="${esc(set)}" title="${esc(set)}" onerror="this.remove()">` : '';
@@ -1331,6 +1361,109 @@ function pintarVotacion(t, e){
   t.querySelector('[data-act="viniciar"]').disabled = cartas.length < 4 || v.fase !== 'listo' || !!(d && d.espera);
   t.querySelector('[data-act="vdetener"]').disabled = v.fase !== 'votando';
   t.querySelector('[data-act="vdesempatar"]').disabled = v.fase !== 'empate';
+  const est = t.querySelector('[data-chat-estado]');
+  if(est){ est.textContent = Chat.texto; est.classList.toggle('ok', Chat.conectado); }
+  t.querySelector('[data-act="chat"]').textContent = Chat.quiere ? 'Desconectar chat' : 'Conectar chat';
+}
+
+/* ---------- Votaciones (encuesta con texto, hasta 8 opciones) ---------- */
+const ENC_ID = 'encuesta', LETRAS_ENC = 'ABCDEFGH', MAX_ENC = 8;
+const DURACIONES = [10,15,20,30,45,60,90,120,180,240,300];
+const textoDur = s => s < 60 ? `${s} s` : (s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} min`);
+const opcionesEnc = () => lista((estado[ENC_ID].datos || {}).opciones);
+const Enc = {
+  votantes:new Map(), conteo:{}, activo:false, reloj:0, sucio:false,
+  cero(){ const c = {}; for(const l of LETRAS_ENC) c[l] = 0; return c; },
+  acepta(L){ return LETRAS_ENC.indexOf(L) > -1 && LETRAS_ENC.indexOf(L) < opcionesEnc().length; },
+  iniciar(){
+    const e = estado[ENC_ID], n = opcionesEnc().length;
+    if(n < 2) return toast('Escribe al menos 2 opciones');
+    if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
+    const dur = clamp(Number((e.opc || {}).dur) || 30, 5, 300) * 1000;
+    this.votantes.clear(); this.conteo = this.cero(); this.activo = true; this.sucio = false;
+    update(ENC_ID, { visible:true, vot:{ fase:'votando', fin:ahora() + dur, dur, votos:{ ...this.conteo } } });
+    clearInterval(this.reloj);
+    this.reloj = setInterval(() => this.tick(), 400);
+  },
+  voto(usuario, L){
+    const v = estado[ENC_ID].vot || {};
+    if(!this.activo || ahora() >= v.fin || this.votantes.has(usuario)) return false;
+    this.votantes.set(usuario, L); this.conteo[L]++; this.sucio = true;
+    return true;
+  },
+  tick(){
+    const v = estado[ENC_ID].vot || {};
+    if(this.sucio){ this.sucio = false; update(ENC_ID, { vot:{ ...v, votos:{ ...this.conteo } } }); }
+    if(ahora() >= v.fin) this.cerrar(); else pintarTarjeta(ENC_ID);
+  },
+  cerrar(){
+    const v = estado[ENC_ID].vot || {};
+    if(v.fase !== 'votando') return;
+    const votos = this.activo ? { ...this.conteo } : { ...this.cero(), ...(v.votos || {}) };
+    this.activo = false; clearInterval(this.reloj);
+    const n = opcionesEnc().length, idx = [...Array(n).keys()];
+    const max = Math.max(...idx.map(i => votos[LETRAS_ENC[i]] || 0));
+    const empatados = idx.filter(i => (votos[LETRAS_ENC[i]] || 0) === max);
+    const nuevo = { fase: empatados.length === 1 ? 'ganador' : 'empate', votos };
+    if(empatados.length === 1) nuevo.ganador = empatados[0]; else nuevo.empatados = empatados;
+    update(ENC_ID, { vot:nuevo });
+  },
+  desempatar(){
+    const v = estado[ENC_ID].vot || {};
+    if(v.fase !== 'empate') return;
+    const lst = lista(v.empatados), g = lst[randInt(lst.length)];
+    const des = { lista:lst, ganador:g, inicio:ahora() + 400, dur:3000 };
+    update(ENC_ID, { vot:{ ...v, fase:'desempate', des } });
+    setTimeout(() => {
+      const vv = estado[ENC_ID].vot || {};
+      if(vv.fase === 'desempate' && vv.des && vv.des.inicio === des.inicio) update(ENC_ID, { vot:{ ...vv, fase:'ganador', ganador:g } });
+    }, 3800);
+  },
+  // Vuelve a cero: borra votos y quién votó
+  reiniciar(){
+    this.activo = false; clearInterval(this.reloj);
+    this.votantes.clear(); this.conteo = this.cero(); this.sucio = false;
+    update(ENC_ID, { vot:{ fase:'listo' } });
+  }
+};
+function pintarEncuesta(t, e){
+  const d = e.datos || {}, v = e.vot || { fase:'listo' }, ops = lista(d.opciones);
+  const votos = v.votos || {}, tot = ops.reduce((s, _, i) => s + (votos[LETRAS_ENC[i]] || 0), 0);
+  const ta = t.querySelector('[data-enc]'), pr = t.querySelector('[data-enc-pregunta]');
+  if(ta !== document.activeElement) ta.value = ops.join('\n');
+  if(pr !== document.activeElement) pr.value = d.pregunta || '';
+  ta.disabled = pr.disabled = v.fase === 'votando' || v.fase === 'desempate';
+  t.querySelector('[data-enc-conteo]').textContent = `${ops.length} de ${MAX_ENC} opciones`;
+  t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? 30); });
+  t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = (e.opc || {})[c.dataset.opcCheck] !== false; });
+  const filas = t.querySelector('[data-enc-filas]'), firma = ops.join('\u0001');
+  if(filas._firma !== firma){
+    filas._firma = firma;
+    filas.innerHTML = ops.map((o, i) => `<div class="res-fila vfila"><span class="vletra">${LETRAS_ENC[i]}</span><span class="res-nom">${esc(o)}</span><span class="vconteo" data-vconteo="${i}"></span></div>`).join('');
+  }
+  filas.querySelectorAll('[data-vconteo]').forEach(s => {
+    const n = votos[LETRAS_ENC[+s.dataset.vconteo]] || 0;
+    s.textContent = v.fase === 'listo' ? '' : `${n} (${tot ? Math.round(n * 100 / tot) : 0}%)`;
+  });
+  filas.querySelectorAll('.vfila').forEach((f, i) => f.classList.toggle('gana', v.fase === 'ganador' && v.ganador === i));
+  let txt;
+  const nom = i => `${LETRAS_ENC[i]} (${ops[i] || ''})`;
+  switch(v.fase){
+    case 'votando': {
+      const s = Math.max(0, Math.ceil((v.fin - ahora()) / 1000));
+      txt = Enc.activo ? `Votando: ${s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s + ' s'} restantes, ${tot} ${tot === 1 ? 'voto' : 'votos'}.` : 'La votación quedó a medias porque se recargó el panel. Usa Detener votación para cerrarla.';
+      break;
+    }
+    case 'ganador': txt = `Ganador: ${nom(v.ganador)} con ${votos[LETRAS_ENC[v.ganador]] || 0} de ${tot} votos.`; break;
+    case 'empate': { const n = votos[LETRAS_ENC[lista(v.empatados)[0]]] || 0; txt = `Empate entre ${lista(v.empatados).map(i => LETRAS_ENC[i]).join(', ')} con ${n} ${n === 1 ? 'voto' : 'votos'} cada uno. Usa Desempatar.`; break; }
+    case 'desempate': txt = 'Desempatando...'; break;
+    default: txt = ops.length < 2 ? 'Escribe al menos 2 opciones, una por línea.' : 'Listo. Dale a Mostrar y luego a Empezar votación.';
+  }
+  t.querySelector('[data-vot-estado]').textContent = txt;
+  t.querySelector('[data-act="einiciar"]').disabled = ops.length < 2 || v.fase !== 'listo';
+  t.querySelector('[data-act="edetener"]').disabled = v.fase !== 'votando';
+  t.querySelector('[data-act="edesempatar"]').disabled = v.fase !== 'empate';
+  t.querySelector('[data-act="ereiniciar"]').disabled = v.fase === 'listo';
   const est = t.querySelector('[data-chat-estado]');
   if(est){ est.textContent = Chat.texto; est.classList.toggle('ok', Chat.conectado); }
   t.querySelector('[data-act="chat"]').textContent = Chat.quiere ? 'Desconectar chat' : 'Conectar chat';
@@ -1689,10 +1822,15 @@ function accion(id, act){
     case 'viniciar': return Vot.iniciar();
     case 'vdetener': return Vot.cerrar();
     case 'vdesempatar': return Vot.desempatar();
+    case 'einiciar': return Enc.iniciar();
+    case 'edetener': return Enc.cerrar();
+    case 'edesempatar': return Enc.desempatar();
+    case 'ereiniciar': return Enc.reiniciar();
     case 'mostrar': {
       const tipo = estado[id].tipo;
       if(tipo === 'tirada') return mostrarEspera(id);
       if(tipo === 'votacion') return mostrarEsperaVotacion();
+      if(tipo === 'encuesta' && opcionesEnc().length < 2) return toast('Escribe al menos 2 opciones');
       if(tipo === 'horoscopo' && !(estado[id].datos && estado[id].datos.h)) return toast('Primero elige un signo');
       return update(id, { visible:true });
     }
@@ -1797,6 +1935,19 @@ function eventos(){
   cont.addEventListener('input', ev => {
     const bus = ev.target.closest('[data-buscar]');
     if(bus){ clearTimeout(bus._t); bus._t = setTimeout(() => Cat.pintarGrid(bus.closest('[data-cat]').dataset.cat), 200); return; }
+    const enc = ev.target.closest('[data-enc], [data-enc-pregunta]');
+    if(enc){
+      const t = enc.closest('.tarjeta');
+      const opciones = t.querySelector('[data-enc]').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, MAX_ENC);
+      const pregunta = t.querySelector('[data-enc-pregunta]').value.trim();
+      t.querySelector('[data-enc-conteo]').textContent = `${opciones.length} de ${MAX_ENC} opciones`;
+      clearTimeout(t._et);
+      t._et = setTimeout(() => {
+        if((estado[ENC_ID].vot || {}).fase !== 'listo') Enc.reiniciar();
+        update(ENC_ID, { datos:{ pregunta, opciones, t:Date.now() } });
+      }, 400);
+      return;
+    }
     const jug = ev.target.closest('[data-jug], [data-jug-titulo]');
     if(jug){
       const id = jug.closest('.tarjeta').dataset.el, t = jug.closest('.tarjeta');
@@ -1902,7 +2053,7 @@ function eventos(){
   new ResizeObserver(() => { $('#previa').style.transform = `scale(${$('#escenario').clientWidth / ANCHO})`; }).observe($('#escenario'));
 
   // Mientras una ruleta gira, el panel actualiza su estado ("Girando..." y luego el ganador)
-  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta' || estado[id].tipo === 'votacion') pintarTarjeta(id); }, 500);
+  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta' || estado[id].tipo === 'votacion' || estado[id].tipo === 'encuesta') pintarTarjeta(id); }, 500);
 }
 
 /* ---------- Link, descarga y utilidades ---------- */
