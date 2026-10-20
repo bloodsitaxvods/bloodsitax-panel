@@ -173,9 +173,9 @@ body.guias .el{outline:3px dashed #FF007F}
 .enc-pregunta[hidden]{display:none}
 .enc-cartas{display:grid;justify-content:center}
 .enc-carta .marco{display:flex;align-items:center;background:linear-gradient(160deg,#2a1520 0%,#0D0D0D 75%)}
-.enc-carta .letra{top:50%;left:12px;transform:translateY(-50%);aspect-ratio:1}
+.enc-carta .letra{top:10px;left:10px;transform:none;aspect-ratio:1;box-shadow:0 0 0 4px #FFC2DC, 0 4px 12px rgba(0,0,0,.7)}
 .enc-texto{position:relative;z-index:1;box-sizing:border-box;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
-  padding:10px 14px;text-align:center;font-weight:800;color:#FFFFFF;line-height:1.15;overflow:hidden;overflow-wrap:anywhere;text-shadow:0 1px 3px #000}
+  padding:10px 14px;text-align:center;font-weight:800;color:#FFFFFF;line-height:1.15;overflow:hidden;overflow-wrap:break-word;text-shadow:0 1px 3px #000}
 .enc-carta .marco::after{display:none}
 .reloj.largo span{font-size:27px}
 
@@ -583,7 +583,7 @@ const INSIGNIAS_GLOBALES = {
 };
 const MAX_MENSAJES = 40;
 const ChatOv = {
-  ws:null, quiere:false, intento:0, listas:new Set(), insignias:{}, cargadas:false, votKey:0, votantes:new Set(),
+  ws:null, quiere:false, intento:0, listas:new Set(), insignias:{}, cargadas:false, votKey:0, votantes:new Map(),
   conectar(){
     this.quiere = true;
     if(this.ws) return;
@@ -664,8 +664,9 @@ const ChatOv = {
     if(ve && ve.fase === 'votando' && ahora() < ve.fin && /^[A-H]$/.test(L) && 'ABCDEFGH'.indexOf(L) < nEnc) v = ve;
     else if(vk && vk.fase === 'votando' && ahora() < vk.fin && /^[A-D]$/.test(L)) v = vk;
     if(v){
-      if(this.votKey !== v.fin){ this.votKey = v.fin; this.votantes.clear(); }
-      if(!this.votantes.has(usuario)){ this.votantes.add(usuario); marca = `<span class="voto-tag">${limpio.toUpperCase()}</span>`; }
+      if(this.votKey !== v.fin){ this.votKey = v.fin; this.votantes = new Map(); }
+      const previo = this.votantes.get(usuario);
+      if(!previo || (v.modo === 'cambiar' && previo !== L)){ this.votantes.set(usuario, L); marca = `<span class="voto-tag">${L}</span>`; }
     }
     const insignias = (tags.badges || '').split(',').filter(Boolean).map(b => {
       const [set, ver] = b.split('/'), url = this.urlInsignia(set, ver);
@@ -758,7 +759,7 @@ function actualizarEncuesta(c, e){
   const letras = 'ABCDEFGH'.slice(0, ops.length).split('');
   aplicarVoto(c, st, e.vot || { fase:'listo' }, {
     titulo: 'Votación',
-    votando: 'Vota en el chat: ' + (letras.length > 1 ? letras.slice(0, -1).join(', ') + ' o ' + letras[letras.length - 1] : letras.join(''))
+    votando: 'Vota en el chat: ' + (letras.length > 1 ? letras.slice(0, -1).join(', ') + ' o ' + letras[letras.length - 1] : letras.join('')) + ((e.vot || {}).modo === 'cambiar' ? ' (puedes cambiar tu voto)' : '')
   });
 }
 function armarEncuesta(c, e, ops, conPregunta){
@@ -769,13 +770,13 @@ function armarEncuesta(c, e, ops, conPregunta){
   const w = Math.floor((e.w - PAD * 2 - GAP * (cols - 1)) / cols);
   const hFila = (e.h - CAB - PAD - GAPF * (filas - 1)) / filas;
   const h = Math.max(70, Math.min(Math.round(hFila - VOTO), Math.round(w * .78)));
-  const letra = Math.round(Math.min(56, Math.max(30, h * .3)));
+  const letra = Math.round(Math.min(80, Math.max(42, h * .38)));
   cont.style.gridTemplateColumns = `repeat(${cols}, ${w}px)`;
   cont.style.columnGap = GAP + 'px'; cont.style.rowGap = GAPF + 'px';
   cont.innerHTML = ops.map((o, i) => `<div class="carta enc-carta" style="width:${w}px">
       <div class="marco" style="height:${h}px">
-        <div class="letra" style="width:${letra}px;font-size:${Math.round(letra * .55)}px">${'ABCDEFGH'[i]}</div>
-        <div class="enc-texto" style="padding-left:${letra + 18}px">${esc(o)}</div>
+        <div class="letra" style="width:${letra}px;font-size:${Math.round(letra * .62)}px">${'ABCDEFGH'[i]}</div>
+        <div class="enc-texto" style="padding:${letra + 14}px 16px 14px">${esc(o)}</div>
       </div>
       <div class="voto"><div class="barra"><i></i></div><div class="pct">0%</div></div>
     </div>`).join('');
