@@ -136,6 +136,18 @@ a{color:var(--rosa)}
 .res-fila:not(.vfila){grid-template-columns:78px 1fr}
 .vfila.gana{background:rgba(255,0,127,.14);border-radius:10px;padding-left:6px;padding-right:6px}
 .vconteo{color:var(--rosa);font-size:13px;font-weight:700;white-space:nowrap}
+.modo-voto{margin:12px 0 4px;padding:12px;border:1px solid var(--linea);border-radius:12px;background:var(--sup2)}
+.modo-voto > span{display:block;font-size:13px;font-weight:700;color:var(--tenue);margin-bottom:8px}
+.modo-botones{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modo-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px;border-radius:10px;cursor:pointer;
+  background:var(--negro);border:2px solid var(--linea);color:var(--tenue);font:inherit}
+.modo-btn b{font-size:15px}
+.modo-btn small{font-size:11px;font-weight:800;letter-spacing:.08em}
+.modo-btn:hover:not(:disabled){border-color:var(--rosa)}
+.modo-btn.activo{background:var(--neon);border-color:var(--rosa);color:var(--blanco);box-shadow:0 0 16px rgba(255,0,127,.55)}
+.modo-btn:disabled{cursor:not-allowed;opacity:.6}
+.modo-btn.activo:disabled{opacity:1}
+.modo-voto .nota{margin:8px 0 0}
 .vot-estado-panel{margin:10px 0 0;font-size:14px;color:var(--blanco);font-weight:700}
 .chat{margin-top:14px;height:260px;overflow-y:auto;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
 .chat .msg{padding:1px 0}
@@ -579,6 +591,14 @@ function tarjeta(id){
       <div class="opciones">
         <label class="opcion">Duración <select data-opc="dur">${DURACIONES.map(n => `<option value="${n}">${textoDur(n)}</option>`).join('')}</select></label>
         <label class="opcion"><input type="checkbox" data-opc-check="verVotos"> Mostrar cantidad de votos</label>
+      </div>
+      <div class="modo-voto">
+        <span>Tipo de voto</span>
+        <div class="modo-botones">
+          <button class="modo-btn" data-modo="uno"><b>1 voto por persona</b><small data-modo-txt></small></button>
+          <button class="modo-btn" data-modo="cambiar"><b>Pueden cambiar su voto</b><small data-modo-txt></small></button>
+        </div>
+        <p class="nota" data-modo-nota></p>
       </div>
       <div class="acciones">
         <button class="btn principal grande" data-act="einiciar">Empezar votación</button>
@@ -1201,7 +1221,7 @@ const Chat = {
       if(Enc.activo && Enc.acepta(L)) ok = Enc.voto(usuario, L);
       else if(Vot.activo && /^[A-D]$/.test(L)) ok = Vot.voto(usuario, L);
     }
-    if(ok !== null) marca = ok ? `<span class="voto-tag">Voto ${L}</span>` : '<span class="voto-tag rep">Ya votó</span>';
+    if(ok !== null) marca = ok === 'cambio' ? `<span class="voto-tag">Cambió a ${L}</span>` : ok ? `<span class="voto-tag">Voto ${L}</span>` : '<span class="voto-tag rep">Ya votó</span>';
     const insignias = (tags.badges || '').split(',').filter(Boolean).map(b => {
       const [set, ver] = b.split('/'), url = this.urlInsignia(set, ver);
       return url ? `<img class="insignia" src="${url}" alt="${esc(set)}" title="${esc(set)}" onerror="this.remove()">` : '';
@@ -1381,15 +1401,24 @@ const Enc = {
     if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
     const dur = clamp(Number((e.opc || {}).dur) || 30, 5, 300) * 1000;
     this.votantes.clear(); this.conteo = this.cero(); this.activo = true; this.sucio = false;
-    update(ENC_ID, { visible:true, vot:{ fase:'votando', fin:ahora() + dur, dur, votos:{ ...this.conteo } } });
+    const modo = (e.opc || {}).modo === 'cambiar' ? 'cambiar' : 'uno';
+    update(ENC_ID, { visible:true, vot:{ fase:'votando', fin:ahora() + dur, dur, modo, votos:{ ...this.conteo } } });
     clearInterval(this.reloj);
     this.reloj = setInterval(() => this.tick(), 400);
   },
+  // Devuelve 'nuevo', 'cambio' o false (voto que no cuenta)
   voto(usuario, L){
     const v = estado[ENC_ID].vot || {};
-    if(!this.activo || ahora() >= v.fin || this.votantes.has(usuario)) return false;
+    if(!this.activo || ahora() >= v.fin) return false;
+    const previo = this.votantes.get(usuario);
+    if(previo){
+      if(v.modo !== 'cambiar' || previo === L) return false;
+      this.conteo[previo] = Math.max(0, this.conteo[previo] - 1);
+      this.votantes.set(usuario, L); this.conteo[L]++; this.sucio = true;
+      return 'cambio';
+    }
     this.votantes.set(usuario, L); this.conteo[L]++; this.sucio = true;
-    return true;
+    return 'nuevo';
   },
   tick(){
     const v = estado[ENC_ID].vot || {};
@@ -1460,6 +1489,17 @@ function pintarEncuesta(t, e){
     default: txt = ops.length < 2 ? 'Escribe al menos 2 opciones, una por línea.' : 'Listo. Dale a Mostrar y luego a Empezar votación.';
   }
   t.querySelector('[data-vot-estado]').textContent = txt;
+  const bloqueado = v.fase === 'votando' || v.fase === 'desempate';
+  const modo = bloqueado ? (v.modo || 'uno') : ((e.opc || {}).modo || 'uno');
+  t.querySelectorAll('[data-modo]').forEach(b => {
+    const act = b.dataset.modo === modo;
+    b.classList.toggle('activo', act);
+    b.disabled = bloqueado;
+    b.querySelector('[data-modo-txt]').textContent = act ? 'ACTIVADO' : 'Desactivado';
+  });
+  t.querySelector('[data-modo-nota]').textContent = bloqueado
+    ? 'Bloqueado mientras dura la votación. Se puede cambiar al terminar o al detenerla.'
+    : 'Elige antes de dar Empezar votación.';
   t.querySelector('[data-act="einiciar"]').disabled = ops.length < 2 || v.fase !== 'listo';
   t.querySelector('[data-act="edetener"]').disabled = v.fase !== 'votando';
   t.querySelector('[data-act="edesempatar"]').disabled = v.fase !== 'empate';
@@ -1885,6 +1925,12 @@ function eventos(){
     }
     const t = ev.target.closest('.tarjeta[data-el]'); if(!t) return;
     const id = t.dataset.el;
+    const md = ev.target.closest('[data-modo]');
+    if(md){
+      const fase = (estado[id].vot || {}).fase;
+      if(fase === 'votando' || fase === 'desempate') return toast('No se puede cambiar durante la votación');
+      return update(id, { opc:{ ...(estado[id].opc || {}), modo:md.dataset.modo } });
+    }
     const rg = ev.target.closest('[data-regirar]'); if(rg) return regirarVotacion(+rg.dataset.regirar);
     const cb = ev.target.closest('[data-cambiar]'); if(cb) return cambiarCarta(id, +cb.dataset.cambiar);
     const a = ev.target.closest('[data-act]'); if(a) return accion(id, a.dataset.act);
