@@ -148,6 +148,8 @@ a{color:var(--rosa)}
 .modo-btn:disabled{cursor:not-allowed;opacity:.6}
 .modo-btn.activo:disabled{opacity:1}
 .modo-voto .nota{margin:8px 0 0}
+.auto-check{padding:6px 12px;border:1px solid var(--linea);border-radius:999px}
+.auto-check.activo{border-color:var(--neon);background:rgba(255,0,127,.16);color:var(--blanco);font-weight:700}
 .pf-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .pf-col span{display:block;font-size:13px;font-weight:800;margin-bottom:6px}
 .pf-col-a span{color:#7FA6FF}
@@ -624,7 +626,10 @@ function tarjeta(id){
         <button class="btn principal grande" data-act="pfsig">Siguiente pregunta</button>
       </div>
       <div class="vot-filas" data-pf-actual></div>
-      <div class="opciones"><label class="opcion">Duración <select data-opc="dur">${PF_DURS.map(n => `<option value="${n}">${n} s</option>`).join('')}</select></label></div>
+      <div class="opciones">
+        <label class="opcion">Duración <select data-opc="dur">${PF_DURS.map(n => `<option value="${n}">${n} s</option>`).join('')}</select></label>
+        <label class="opcion auto-check"><input type="checkbox" data-opc-check="auto"> Empezar votación automáticamente</label>
+      </div>
       <div class="acciones">
         <button class="btn principal grande" data-act="pfini">Empezar votación</button>
         <button class="btn grande" data-act="pfdet">Detener votación</button>
@@ -1649,6 +1654,8 @@ const PF = {
     }
     this.limpiar();
     update(PF_ID, { visible:true, datos:{ ...par, t:Date.now() }, vot:{ fase:'listo' } });
+    // Modo automático: el tiempo arranca en cuanto aparece la nueva pregunta
+    if((estado[PF_ID].opc || {}).auto) this.iniciar();
   },
   iniciar(){
     const e = estado[PF_ID], d = e.datos, v = e.vot || {};
@@ -1724,11 +1731,14 @@ function pintarPrefieres(t, e){
   let estadoTxt;
   if(votando) estadoTxt = PF.activo ? `Votando: ${Math.max(0, Math.ceil((v.fin - ahora()) / 1000))} s restantes, ${totV} ${totV === 1 ? 'voto' : 'votos'}.` : 'La votación quedó a medias porque se recargó el panel. Usa Detener votación.';
   else if(v.fase === 'resultado') estadoTxt = v.ganador === -1 ? (totV ? `Empate con ${votos.A} votos cada una.` : 'Terminó sin votos.') : `Ganó la ${v.ganador === 0 ? 'A' : 'B'} con ${votos[v.ganador === 0 ? 'A' : 'B']} de ${totV} votos.`;
-  else estadoTxt = d.a ? `Pregunta lista (${d.et || ''}). Dale a Empezar votación.` : 'Dale a Siguiente pregunta para cargar la primera.';
+  else estadoTxt = d.a ? `Pregunta lista (${d.et || ''}). ${o.auto ? 'Modo automático: la siguiente pregunta empezará sola.' : 'Dale a Empezar votación.'}` : 'Dale a Siguiente pregunta para cargar la primera.';
   t.querySelector('[data-vot-estado]').textContent = estadoTxt;
 
   t.querySelector('[data-act="pfsig"]').disabled = votando;
-  t.querySelector('[data-act="pfini"]').disabled = votando || !d.a || v.fase === 'resultado';
+  const auto = !!o.auto;
+  t.querySelectorAll('[data-opc-check="auto"]').forEach(c => { c.checked = auto; c.closest('.auto-check').classList.toggle('activo', auto); });
+  t.querySelector('[data-act="pfini"]').disabled = auto || votando || !d.a || v.fase === 'resultado';
+  t.querySelector('[data-act="pfini"]').title = auto ? 'Desactivado: la votación empieza sola con Siguiente pregunta' : '';
   t.querySelector('[data-act="pfdet"]').disabled = !votando;
   t.querySelector('[data-act="pfreset"]').disabled = votando || m.i < 0;
   t.querySelector('[data-act="pfhist"]').disabled = !Object.keys(PF.datos.usadas || {}).length;
