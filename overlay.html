@@ -148,6 +148,8 @@ body.guias .el{outline:3px dashed #FF007F}
 .chatov .sep{margin-right:2px}
 .chatov .insignia{width:22px;height:22px;vertical-align:-4px;margin-right:4px}
 .chatov .emote{height:30px;vertical-align:-8px;margin:0 1px}
+.chatov .voto-tag.pf-a{background:#2D6BFF}
+.chatov .voto-tag.pf-b{background:#E0243B}
 .chatov .voto-tag{display:inline-grid;place-items:center;min-width:26px;height:26px;margin-left:8px;border-radius:50%;
   background:#FF007F;color:#FFFFFF;font-size:15px;font-weight:800;vertical-align:2px;box-shadow:0 0 0 2px #FFC2DC}
 
@@ -178,6 +180,56 @@ body.guias .el{outline:3px dashed #FF007F}
   padding:10px 14px;text-align:center;font-weight:800;color:#FFFFFF;line-height:1.15;overflow:hidden;overflow-wrap:break-word;text-shadow:0 1px 3px #000}
 .enc-carta .marco::after{display:none}
 .reloj.largo span{font-size:27px}
+
+/* Qué prefieres */
+.pf{width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:1.1em;padding:1em;color:#FFFFFF}
+.pf-titulo{font-size:3.6em;font-weight:800;line-height:1;color:#FFFFFF;text-shadow:0 3px 10px rgba(0,0,0,.85)}
+.pf-tiempo{position:relative;width:62%;display:flex;flex-direction:column;align-items:center;gap:.35em}
+.pf-seg{font-size:2.6em;font-weight:800;line-height:1;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,.85);font-variant-numeric:tabular-nums}
+.pf-seg.urgente{color:#FFC2DC;animation:latidoNum 1s ease-in-out infinite}
+.pf-barra{position:relative;width:100%;height:1.7em;box-sizing:border-box;border:.22em solid #FFC2DC;border-radius:999px;
+  background:rgba(13,13,13,.85);overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+/* Líquido: se vacía de derecha a izquierda, con un reflejo que corre y una ola en el borde */
+.pf-liquido{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:999px 0 0 999px;
+  background:linear-gradient(180deg,#FF4DA0 0%,#FF007F 55%,#D1006A 100%)}
+.pf-liquido::before{content:'';position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(100deg,transparent 0 35%,rgba(255,255,255,.35) 45%,transparent 55% 100%) 0 0/220% 100%;
+  animation:pfReflejo 2.4s linear infinite}
+.pf-liquido::after{content:'';position:absolute;top:0;bottom:0;right:-.55em;width:.6em;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='20'%3E%3Cpath d='M0 0 H6 Q12 5 6 10 Q0 15 6 20 H0 Z' fill='%23D1006A'/%3E%3C/svg%3E") 0 0/100% 1.2em repeat-y;
+  animation:pfOla .9s linear infinite}
+.fase-resultado .pf-liquido::after,.fase-listo .pf-liquido::after{display:none}
+@keyframes pfVaciar{from{width:100%}to{width:0%}}
+@keyframes pfReflejo{from{background-position:120% 0}to{background-position:-120% 0}}
+@keyframes pfOla{from{background-position:0 0}to{background-position:0 1.2em}}
+.pf-empate{position:absolute;left:50%;bottom:0;transform:translateX(-50%);display:none;font-size:1.9em;font-weight:800;
+  background:#FFC2DC;color:#0D0D0D;border-radius:999px;padding:.15em .9em}
+.pf.fase-resultado .pf-seg,.pf.fase-resultado .pf-barra{visibility:hidden}
+.pf.es-empate .pf-empate{display:block}
+.pf-cartas{flex:1;min-height:0;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:2.4em}
+.pf-carta{position:relative;min-height:0;box-sizing:border-box;border-radius:1.6em;border:.25em solid rgba(255,255,255,.85);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4.6em 1.4em 1.2em;
+  box-shadow:0 10px 26px rgba(0,0,0,.55);transition:transform .5s cubic-bezier(.2,1.4,.4,1), filter .4s, border-color .3s}
+.pf-a{background:linear-gradient(160deg,#3B7BFF 0%,#1F4FD6 55%,#12318F 100%)}
+.pf-b{background:linear-gradient(160deg,#FF4A5C 0%,#D41F36 55%,#8E0F22 100%)}
+.pf-letra{position:absolute;top:.55em;left:.55em;width:3.3em;height:3.3em;border-radius:50%;display:grid;place-items:center;
+  background:#FFFFFF;font-size:1.25em;font-weight:800;box-shadow:0 3px 10px rgba(0,0,0,.45)}
+.pf-a .pf-letra{color:#1F4FD6;font-size:1.9em;width:2.2em;height:2.2em}
+.pf-b .pf-letra{color:#D41F36;font-size:1.9em;width:2.2em;height:2.2em}
+.pf-texto{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;
+  font-weight:800;line-height:1.12;overflow:hidden;overflow-wrap:break-word;text-shadow:0 2px 6px rgba(0,0,0,.55)}
+/* Resultados: ocultos hasta que termina el tiempo */
+.pf-res{display:none;flex-direction:column;align-items:center;margin-top:.6em;padding:.35em 1.2em .45em;border-radius:1em;background:rgba(0,0,0,.32)}
+.fase-resultado .pf-res{display:flex;animation:pfAparece .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pfAparece{from{opacity:0;transform:translateY(.6em) scale(.9)}}
+.pf-pct{font-size:3.4em;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.pf-votos{font-size:1.45em;font-weight:700;margin-top:.15em;opacity:.95}
+/* Ganadora: más grande, borde blanco grueso y su resultado en recuadro blanco (sin brillo fuerte) */
+.pf-carta.gana{transform:scale(1.05);border:.38em solid #FFFFFF;box-shadow:0 0 0 .22em rgba(255,194,220,.9), 0 14px 30px rgba(0,0,0,.6)}
+.pf-carta.gana .pf-res{background:#FFFFFF;text-shadow:none}
+.pf-a.gana .pf-res{color:#12318F}
+.pf-b.gana .pf-res{color:#8E0F22}
+.pf-carta.pierde{filter:saturate(.55) brightness(.78);transform:scale(.97)}
 
 /* Horóscopo */
 .horo{--k:1;position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:calc(var(--k)*18px);
@@ -660,13 +712,15 @@ const ChatOv = {
     const limpio = msg.trim(), L = limpio.toUpperCase();
     const enc = elementos['encuesta'] || {}, ve = enc.vot, vk = (elementos['dbd-killer-votacion'] || {}).vot;
     const nEnc = lista((enc.datos || {}).opciones).length;
-    let v = null;
-    if(ve && ve.fase === 'votando' && ahora() < ve.fin && /^[A-H]$/.test(L) && 'ABCDEFGH'.indexOf(L) < nEnc) v = ve;
+    const vp = (elementos['prefieres'] || {}).vot;
+    let v = null, clase = '';
+    if(vp && vp.fase === 'votando' && ahora() < vp.fin && /^[AB]$/.test(L)){ v = vp; clase = ' pf-' + L.toLowerCase(); }
+    else if(ve && ve.fase === 'votando' && ahora() < ve.fin && /^[A-H]$/.test(L) && 'ABCDEFGH'.indexOf(L) < nEnc) v = ve;
     else if(vk && vk.fase === 'votando' && ahora() < vk.fin && /^[A-D]$/.test(L)) v = vk;
     if(v){
       if(this.votKey !== v.fin){ this.votKey = v.fin; this.votantes = new Map(); }
       const previo = this.votantes.get(usuario);
-      if(!previo || (v.modo === 'cambiar' && previo !== L)){ this.votantes.set(usuario, L); marca = `<span class="voto-tag">${L}</span>`; }
+      if(!previo || (v.modo === 'cambiar' && previo !== L)){ this.votantes.set(usuario, L); marca = `<span class="voto-tag${clase}">${L}</span>`; }
     }
     const insignias = (tags.badges || '').split(',').filter(Boolean).map(b => {
       const [set, ver] = b.split('/'), url = this.urlInsignia(set, ver);
@@ -788,6 +842,79 @@ function armarEncuesta(c, e, ops, conPregunta){
   });
 }
 
+/* ---------- Qué prefieres ---------- */
+function crearPrefieres(c){
+  c.innerHTML = `<div class="pf fase-listo">
+    <div class="pf-titulo">¿Qué prefieres?</div>
+    <div class="pf-tiempo">
+      <div class="pf-seg">0</div>
+      <div class="pf-barra"><div class="pf-liquido"></div></div>
+      <div class="pf-empate">Empate</div>
+    </div>
+    <div class="pf-cartas">
+      <div class="pf-carta pf-a"><div class="pf-letra">A</div><div class="pf-texto"></div><div class="pf-res"><div class="pf-pct"></div><div class="pf-votos"></div></div></div>
+      <div class="pf-carta pf-b"><div class="pf-letra">B</div><div class="pf-texto"></div><div class="pf-res"><div class="pf-pct"></div><div class="pf-votos"></div></div></div>
+    </div>
+  </div>`;
+  c._pf = { firma:'', fin:0, seg:0 };
+}
+function actualizarPrefieres(c, e){
+  const st = c._pf, raiz = c.firstChild, d = e.datos || {}, v = e.vot || { fase:'listo' };
+  raiz.style.fontSize = (e.w / 1300 * 16) + 'px';
+  const firma = JSON.stringify([d.a, d.b, e.w, e.h]);
+  if(firma !== st.firma){
+    st.firma = firma;
+    const textos = raiz.querySelectorAll('.pf-texto');
+    textos[0].textContent = d.a || ''; textos[1].textContent = d.b || '';
+    requestAnimationFrame(() => textos.forEach(ajustarTextoPF));
+  }
+  const fase = v.fase || 'listo';
+  for(const f of ['listo', 'votando', 'resultado']) raiz.classList.toggle('fase-' + f, fase === f);
+
+  // Resultado: % y votos en ambas cartas; la ganadora (o las dos si empatan) se resalta
+  const votos = v.votos || {}, tot = (votos.A || 0) + (votos.B || 0);
+  const cartas = raiz.querySelectorAll('.pf-carta');
+  ['A', 'B'].forEach((L, i) => {
+    const n = votos[L] || 0;
+    cartas[i].querySelector('.pf-pct').textContent = (tot ? Math.round(n * 100 / tot) : 0) + '%';
+    cartas[i].querySelector('.pf-votos').textContent = `${n} ${n === 1 ? 'voto' : 'votos'}`;
+    const gana = fase === 'resultado' && tot > 0 && (v.ganador === i || v.ganador === -1);
+    cartas[i].classList.toggle('gana', gana);
+    cartas[i].classList.toggle('pierde', fase === 'resultado' && tot > 0 && !gana);
+  });
+  raiz.classList.toggle('es-empate', fase === 'resultado' && v.ganador === -1 && tot > 0);
+
+  // Tiempo: la barra se vacía sola con CSS; los segundos se actualizan 4 veces por segundo
+  const liq = raiz.querySelector('.pf-liquido'), seg = raiz.querySelector('.pf-seg');
+  if(fase === 'votando'){
+    if(st.fin !== v.fin){
+      st.fin = v.fin;
+      const dur = v.dur || 20000, pasado = Math.min(dur, Math.max(0, dur - (v.fin - ahora())));
+      liq.style.animation = 'none'; void liq.offsetWidth;
+      liq.style.animation = `pfVaciar ${dur}ms linear ${-pasado}ms forwards`;
+      clearInterval(st.seg);
+      const pintar = () => {
+        const s = Math.max(0, Math.ceil((v.fin - ahora()) / 1000));
+        seg.textContent = s;
+        seg.classList.toggle('urgente', s <= 5);
+        if(s <= 0) clearInterval(st.seg);
+      };
+      pintar(); st.seg = setInterval(pintar, 250);
+    }
+  } else {
+    clearInterval(st.seg); st.fin = 0;
+    liq.style.animation = 'none';
+    seg.classList.remove('urgente');
+    if(fase === 'listo'){ liq.style.width = '100%'; seg.textContent = Math.round(((e.opc || {}).dur || 20)); }
+    else { liq.style.width = '0%'; seg.textContent = '0'; }
+  }
+}
+function ajustarTextoPF(t){
+  let fs = 3.4;
+  t.style.fontSize = fs + 'em';
+  while((t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1) && fs > 1.1){ fs -= .15; t.style.fontSize = fs + 'em'; }
+}
+
 /* ---------- Horóscopo ---------- */
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function fechaBonita(f){
@@ -835,7 +962,8 @@ const TIPOS = {
   votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
   chat: { crear: crearChat, actualizar: actualizarChat, liberar: liberarChat },
   lista: { crear: dibujarLista, actualizar: dibujarLista },
-  encuesta: { crear: crearEncuesta, actualizar: actualizarEncuesta }
+  encuesta: { crear: crearEncuesta, actualizar: actualizarEncuesta },
+  prefieres: { crear: crearPrefieres, actualizar: actualizarPrefieres }
 };
 
 const nodos = {}, ultimoT = {};
