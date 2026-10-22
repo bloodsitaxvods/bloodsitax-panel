@@ -148,6 +148,15 @@ a{color:var(--rosa)}
 .modo-btn:disabled{cursor:not-allowed;opacity:.6}
 .modo-btn.activo:disabled{opacity:1}
 .modo-voto .nota{margin:8px 0 0}
+.pf-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.pf-col span{display:block;font-size:13px;font-weight:800;margin-bottom:6px}
+.pf-col-a span{color:#7FA6FF}
+.pf-col-b span{color:#FF7A88}
+.pf-col .lista{min-height:170px}
+.pf-col-a .lista{border-color:#2D6BFF}
+.pf-col-b .lista{border-color:#E0243B}
+.pf-fila-a .vletra{background:#2D6BFF}
+.pf-fila-b .vletra{background:#E0243B}
 .vot-estado-panel{margin:10px 0 0;font-size:14px;color:var(--blanco);font-weight:700}
 .chat{margin-top:14px;height:260px;overflow-y:auto;background:var(--negro);border:1px solid var(--linea);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
 .chat .msg{padding:1px 0}
@@ -330,6 +339,8 @@ const ELEMENTOS = {
   'chat-votacion':       { nombre:'Chat en el overlay', tipo:'chat',  w:520, h:640, x:1620, y:560 },
   'encuesta':            { nombre:'Votación',           tipo:'encuesta', w:1300, h:620, x:720, y:560 },
   'chat-encuesta':       { nombre:'Chat de la votación', tipo:'chat', w:480, h:640, x:1650, y:560 },
+  'prefieres':           { nombre:'Qué prefieres',      tipo:'prefieres', w:1300, h:620, x:720, y:540 },
+  'chat-prefieres':      { nombre:'Chat de Qué prefieres', tipo:'chat', w:480, h:640, x:1650, y:560 },
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 },
   'lista-jugadores':     { nombre:'Lista para jugar',   tipo:'lista', w:480, h:640, x:300, y:540 }
 };
@@ -349,6 +360,7 @@ const PESTANAS = [
   { id:'random', nombre:'Random', elementos:[], imagenes:true },
   { id:'lista', nombre:'Lista', elementos:['lista-jugadores'] },
   { id:'votaciones', nombre:'Votaciones', elementos:['encuesta','chat-encuesta'] },
+  { id:'prefieres', nombre:'Qué prefieres', elementos:['prefieres','chat-prefieres'] },
   { id:'catalogo', nombre:'Catálogo', elementos:[], catalogo:true }
 ];
 // Categorías del catálogo. lado = tamaño máximo al que se comprime cada imagen.
@@ -413,6 +425,7 @@ function porDefecto(id){
   if(d.juego) base.opc = d.juego === 'marvel' ? { cantidad:1, grupo:'' } : { perks:4 };
   if(d.tipo === 'votacion') base.opc = { dur:20 };
   if(d.tipo === 'encuesta') base.opc = { dur:30 };
+  if(d.tipo === 'prefieres') base.opc = { dur:20, modo:'manual' };
   return base;
 }
 const estado = {};
@@ -445,6 +458,7 @@ const Sync = {
       conexion(true, 'Modo local: solo funciona en este navegador');
       Cat.iniciarLocal();
       Horo.iniciarLocal();
+      PF.iniciarLocal();
       this.guardarLocal();
       pintarRandom(true);
       pintarTodo();
@@ -469,6 +483,7 @@ const Sync = {
     ref.on('value', s => aplicarRemoto(s.val() || {}), () => conexion(false, 'Sin permiso: revisa las reglas de Firebase'));
     Cat.conectar(db);
     Horo.conectar(db);
+    PF.conectar(db);
     this.raiz.child('imagenes').on('value', s => { imagenes = s.val() || {}; pintarRandom(true); });
     db.ref('.info/connected').on('value', s => conexion(!!s.val(), s.val() ? 'Conectado a Firebase' : 'Reconectando'));
   },
@@ -578,6 +593,44 @@ function tarjeta(id){
   } else if(e.tipo === 'chat'){
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="mostrar">Mostrar</button><button class="btn grande" data-act="ocultar">Ocultar</button></div>
       <p class="nota">Muestra el chat de #${CANAL_TWITCH} con emotes y emblemas. El overlay se conecta solo cuando está visible, y marca los votos durante la votación.</p>`;
+  } else if(e.tipo === 'prefieres'){
+    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+      <div class="modo-voto">
+        <span>Modo</span>
+        <div class="modo-botones">
+          <button class="modo-btn" data-pf-modo="manual"><b>Manual</b><small></small></button>
+          <button class="modo-btn" data-pf-modo="lista"><b>Lista</b><small></small></button>
+        </div>
+      </div>
+      <div data-pf-manual>
+        <div class="pf-cols">
+          <label class="pf-col pf-col-a"><span>Opción A (azul)</span><textarea class="lista" data-pf-a placeholder="Una frase por línea"></textarea></label>
+          <label class="pf-col pf-col-b"><span>Opción B (roja)</span><textarea class="lista" data-pf-b placeholder="Una frase por línea"></textarea></label>
+        </div>
+        <p class="disponible" data-pf-info-manual></p>
+        <div class="acciones"><button class="btn" data-act="pfreset">Volver a fila 1</button></div>
+      </div>
+      <div data-pf-lista hidden>
+        <div class="form-fila">
+          <label class="btn principal archivo">Subir archivo .txt<input type="file" accept=".txt,text/plain" data-pf-archivo></label>
+          <button class="btn" data-act="pfhist">Borrar historial</button>
+        </div>
+        <p class="disponible" data-pf-info-lista></p>
+        <p class="nota">Una ronda por línea: <code>frase A | frase B</code>. Las líneas vacías o que empiezan con # se ignoran. Las rondas salen al azar y no se repiten hasta que borres el historial.</p>
+      </div>
+      <div class="acciones" style="margin-top:12px">
+        <button class="btn principal grande" data-act="mostrar">Mostrar</button>
+        <button class="btn grande" data-act="ocultar">Ocultar</button>
+        <button class="btn principal grande" data-act="pfsig">Siguiente pregunta</button>
+      </div>
+      <div class="vot-filas" data-pf-actual></div>
+      <div class="opciones"><label class="opcion">Duración <select data-opc="dur">${PF_DURS.map(n => `<option value="${n}">${n} s</option>`).join('')}</select></label></div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="pfini">Empezar votación</button>
+        <button class="btn grande" data-act="pfdet">Detener votación</button>
+      </div>
+      <p class="vot-estado-panel" data-vot-estado></p>
+      <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'encuesta'){
     cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="form-fila"><input class="campo" data-enc-pregunta maxlength="80" placeholder="Pregunta o título (opcional)"></div>
@@ -780,6 +833,7 @@ function pintarTarjeta(id){
     t.querySelector('[data-act="lsiguiente"]').disabled = !nombres.length;
   }
   if(e.tipo === 'encuesta') pintarEncuesta(t, e);
+  if(e.tipo === 'prefieres') pintarPrefieres(t, e);
   if(e.tipo === 'votacion'){
     t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? ''); });
     pintarVotacion(t, e);
@@ -1218,7 +1272,8 @@ const Chat = {
     const L = limpio.toUpperCase();
     let ok = null;
     if(/^[A-H]$/.test(L)){
-      if(Enc.activo && Enc.acepta(L)) ok = Enc.voto(usuario, L);
+      if(PF.activo && /^[AB]$/.test(L)) ok = PF.voto(usuario, L);
+      else if(Enc.activo && Enc.acepta(L)) ok = Enc.voto(usuario, L);
       else if(Vot.activo && /^[A-D]$/.test(L)) ok = Vot.voto(usuario, L);
     }
     if(ok !== null) marca = ok === 'cambio' ? `<span class="voto-tag">Cambió a ${L}</span>` : ok ? `<span class="voto-tag">Voto ${L}</span>` : '<span class="voto-tag rep">Ya votó</span>';
@@ -1504,6 +1559,180 @@ function pintarEncuesta(t, e){
   t.querySelector('[data-act="edetener"]').disabled = v.fase !== 'votando';
   t.querySelector('[data-act="edesempatar"]').disabled = v.fase !== 'empate';
   t.querySelector('[data-act="ereiniciar"]').disabled = v.fase === 'listo';
+  const est = t.querySelector('[data-chat-estado]');
+  if(est){ est.textContent = Chat.texto; est.classList.toggle('ok', Chat.conectado); }
+  t.querySelector('[data-act="chat"]').textContent = Chat.quiere ? 'Desconectar chat' : 'Conectar chat';
+}
+
+/* ---------- Qué prefieres ---------- */
+const PF_ID = 'prefieres', PF_DURS = [10,15,20,30,45,60];
+// Llave de una ronda por su texto (no por su número de línea), para el historial
+function clavePF(a, b){
+  const t = (a + '|' + b).toLowerCase().replace(/\s+/g, ' ').trim();
+  let h = 2166136261;
+  for(const ch of t){ h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return 'r' + h.toString(36) + t.length.toString(36);
+}
+// Lee el .txt: una ronda por línea, "frase A | frase B". Ignora líneas vacías y las que empiezan con #
+function leerRondasPF(texto){
+  const rondas = [], vistas = new Set(); let malas = 0, repetidas = 0;
+  for(const linea of texto.replace(/^﻿/, '').split(/\r?\n/)){
+    const l = linea.trim();
+    if(!l || l.startsWith('#')) continue;
+    let i = l.indexOf('|'), sep = 1;
+    if(i < 0){ const m = /\s-\s/.exec(l); if(m){ i = m.index; sep = m[0].length; } }
+    const a = i < 0 ? '' : l.slice(0, i).trim().slice(0, 140), b = i < 0 ? '' : l.slice(i + sep).trim().slice(0, 140);
+    if(!a || !b){ malas++; continue; }
+    const k = clavePF(a, b);
+    if(vistas.has(k)){ repetidas++; continue; }
+    vistas.add(k); rondas.push({ a, b });
+  }
+  return { rondas, malas, repetidas };
+}
+const PF = {
+  datos:{ rondas:[], usadas:{}, archivo:'', manual:{ a:[], b:[], i:-1 } },
+  ref:null, votantes:new Map(), conteo:{ A:0, B:0 }, activo:false, reloj:0,
+  normalizar(v){
+    v = v || {};
+    const m = v.manual || {};
+    return { rondas:lista(v.rondas), usadas:v.usadas || {}, archivo:v.archivo || '', manual:{ a:lista(m.a), b:lista(m.b), i:typeof m.i === 'number' ? m.i : -1 } };
+  },
+  conectar(db){
+    this.ref = db.ref(`overlay/${sala}/prefieres`);
+    this.ref.on('value', s => { this.datos = this.normalizar(s.val()); pintarTarjeta(PF_ID); });
+  },
+  iniciarLocal(){ try{ this.datos = this.normalizar(JSON.parse(leerLS('bsx-pf-' + sala) || 'null')); }catch{} },
+  guardarLocal(){ guardarLS('bsx-pf-' + sala, JSON.stringify(this.datos)); pintarTarjeta(PF_ID); },
+  set(campo, valor){
+    this.datos[campo] = valor;
+    if(this.ref) this.ref.child(campo).set(valor).catch(e => toast('No se pudo guardar: ' + e.message));
+    else this.guardarLocal();
+    pintarTarjeta(PF_ID);
+  },
+  marcar(k){
+    this.datos.usadas = { ...this.datos.usadas, [k]:1 };
+    if(this.ref) this.ref.child('usadas/' + k).set(1); else this.guardarLocal();
+  },
+  borrarHistorial(){
+    const n = Object.keys(this.datos.usadas || {}).length;
+    if(!n) return toast('El historial ya está vacío');
+    if(!confirm(`¿Borrar el historial? Las ${n} rondas que ya salieron podrán volver a salir.`)) return;
+    this.set('usadas', {});
+    toast('Historial borrado');
+  },
+  async cargarArchivo(file){
+    const r = leerRondasPF(await file.text());
+    if(!r.rondas.length) return toast('No encontré rondas. Usa una por línea: frase A | frase B');
+    this.set('rondas', r.rondas);
+    this.set('archivo', file.name);
+    const extra = [r.malas ? `${r.malas} líneas ignoradas` : '', r.repetidas ? `${r.repetidas} repetidas` : ''].filter(Boolean).join(', ');
+    toast(`Archivo cargado: ${r.rondas.length} rondas${extra ? ' (' + extra + ')' : ''}`);
+  },
+  siguiente(){
+    if(this.activo) return toast('Espera a que termine la votación o detenla');
+    const modo = (estado[PF_ID].opc || {}).modo || 'manual';
+    let par;
+    if(modo === 'manual'){
+      const m = this.datos.manual, n = Math.min(m.a.length, m.b.length), i = m.i + 1;
+      if(!n) return toast('Escribe frases en A y en B');
+      if(i >= n) return toast('Ya salieron todas las filas. Usa Volver a fila 1');
+      par = { a:m.a[i], b:m.b[i], et:`Fila ${i + 1} de ${n}` };
+      this.set('manual', { ...m, i });
+    } else {
+      const todas = this.datos.rondas;
+      if(!todas.length) return toast('Sube un archivo .txt con las rondas');
+      const libres = todas.filter(r => !this.datos.usadas[clavePF(r.a, r.b)]);
+      if(!libres.length) return toast('Ya salieron todas las rondas. Usa Borrar historial');
+      const r = libres[randInt(libres.length)];
+      this.marcar(clavePF(r.a, r.b));
+      par = { a:r.a, b:r.b, et:`Quedan ${libres.length - 1} de ${todas.length}` };
+    }
+    this.limpiar();
+    update(PF_ID, { visible:true, datos:{ ...par, t:Date.now() }, vot:{ fase:'listo' } });
+  },
+  iniciar(){
+    const e = estado[PF_ID], d = e.datos, v = e.vot || {};
+    if(!d || !d.a) return toast('Primero dale a Siguiente pregunta');
+    if(v.fase && v.fase !== 'listo') return toast('Esta pregunta ya se votó. Dale a Siguiente pregunta');
+    if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
+    const dur = clamp(Number((e.opc || {}).dur) || 20, 5, 60) * 1000;
+    this.limpiar(); this.activo = true;
+    update(PF_ID, { visible:true, vot:{ fase:'votando', fin:ahora() + dur, dur } });
+    this.reloj = setInterval(() => this.tick(), 250);
+  },
+  voto(usuario, L){
+    const v = estado[PF_ID].vot || {};
+    if(!this.activo || ahora() >= v.fin || this.votantes.has(usuario)) return false;
+    this.votantes.set(usuario, L); this.conteo[L]++;
+    return true;
+  },
+  tick(){
+    const v = estado[PF_ID].vot || {};
+    if(ahora() >= v.fin) this.cerrar(); else pintarTarjeta(PF_ID);
+  },
+  cerrar(){
+    const v = estado[PF_ID].vot || {};
+    if(v.fase !== 'votando') return;
+    const votos = this.activo ? { ...this.conteo } : { A:0, B:0 };
+    this.limpiar();
+    const ganador = votos.A > votos.B ? 0 : votos.B > votos.A ? 1 : -1;
+    update(PF_ID, { vot:{ fase:'resultado', votos, ganador } });
+  },
+  limpiar(){ this.activo = false; clearInterval(this.reloj); this.votantes.clear(); this.conteo = { A:0, B:0 }; }
+};
+function pintarPrefieres(t, e){
+  const o = e.opc || {}, modo = o.modo || 'manual', d = e.datos || {}, v = e.vot || { fase:'listo' };
+  const votando = v.fase === 'votando';
+  t.querySelectorAll('[data-pf-modo]').forEach(b => {
+    const act = b.dataset.pfModo === modo;
+    b.classList.toggle('activo', act); b.disabled = votando;
+    b.querySelector('small').textContent = act ? 'ACTIVADO' : 'Desactivado';
+  });
+  t.querySelector('[data-pf-manual]').hidden = modo !== 'manual';
+  t.querySelector('[data-pf-lista]').hidden = modo !== 'lista';
+
+  // Manual
+  const m = PF.datos.manual, ta = t.querySelector('[data-pf-a]'), tb = t.querySelector('[data-pf-b]');
+  if(!t._pfPend){
+    if(ta !== document.activeElement) ta.value = m.a.join('\n');
+    if(tb !== document.activeElement) tb.value = m.b.join('\n');
+  }
+  const n = Math.min(m.a.length, m.b.length), sobra = Math.abs(m.a.length - m.b.length);
+  const im = t.querySelector('[data-pf-info-manual]');
+  let txt = !n ? 'Escribe una frase por línea en A y en B.' : (m.i + 1 >= n ? `${n} pares. Ya salieron todas las filas.` : `${n} pares. Siguiente: fila ${m.i + 2} de ${n}.`);
+  if(sobra) txt += ` ${sobra === 1 ? 'Sobra 1 línea' : `Sobran ${sobra} líneas`} en ${m.a.length > m.b.length ? 'A' : 'B'} sin pareja; no se usarán.`;
+  im.textContent = txt; im.classList.toggle('falta', !!sobra);
+
+  // Lista
+  const tot = PF.datos.rondas.length, usadas = PF.datos.rondas.filter(r => PF.datos.usadas[clavePF(r.a, r.b)]).length;
+  t.querySelector('[data-pf-info-lista]').textContent = tot
+    ? `Archivo: ${PF.datos.archivo || 'sin nombre'}. ${tot} rondas: ${usadas} ya salieron, quedan ${tot - usadas}.`
+    : 'Aún no hay archivo cargado.';
+
+  t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String(o[sel.dataset.opc] ?? 20); });
+
+  // Ronda actual y conteo
+  const actual = t.querySelector('[data-pf-actual]');
+  const votos = votando ? PF.conteo : (v.votos || {});
+  const totV = (votos.A || 0) + (votos.B || 0);
+  const cuenta = L => v.fase === 'listo' || !d.a ? '' : `${votos[L] || 0} (${totV ? Math.round((votos[L] || 0) * 100 / totV) : 0}%)`;
+  actual.innerHTML = d.a
+    ? `<div class="res-fila vfila pf-fila-a ${v.ganador === 0 || (v.fase === 'resultado' && v.ganador === -1 && totV) ? 'gana' : ''}"><span class="vletra">A</span><span class="res-nom">${esc(d.a)}</span><span class="vconteo">${cuenta('A')}</span></div>
+       <div class="res-fila vfila pf-fila-b ${v.ganador === 1 || (v.fase === 'resultado' && v.ganador === -1 && totV) ? 'gana' : ''}"><span class="vletra">B</span><span class="res-nom">${esc(d.b)}</span><span class="vconteo">${cuenta('B')}</span></div>`
+    : '';
+
+  let estadoTxt;
+  if(votando) estadoTxt = PF.activo ? `Votando: ${Math.max(0, Math.ceil((v.fin - ahora()) / 1000))} s restantes, ${totV} ${totV === 1 ? 'voto' : 'votos'}.` : 'La votación quedó a medias porque se recargó el panel. Usa Detener votación.';
+  else if(v.fase === 'resultado') estadoTxt = v.ganador === -1 ? (totV ? `Empate con ${votos.A} votos cada una.` : 'Terminó sin votos.') : `Ganó la ${v.ganador === 0 ? 'A' : 'B'} con ${votos[v.ganador === 0 ? 'A' : 'B']} de ${totV} votos.`;
+  else estadoTxt = d.a ? `Pregunta lista (${d.et || ''}). Dale a Empezar votación.` : 'Dale a Siguiente pregunta para cargar la primera.';
+  t.querySelector('[data-vot-estado]').textContent = estadoTxt;
+
+  t.querySelector('[data-act="pfsig"]').disabled = votando;
+  t.querySelector('[data-act="pfini"]').disabled = votando || !d.a || v.fase === 'resultado';
+  t.querySelector('[data-act="pfdet"]').disabled = !votando;
+  t.querySelector('[data-act="pfreset"]').disabled = votando || m.i < 0;
+  t.querySelector('[data-act="pfhist"]').disabled = !Object.keys(PF.datos.usadas || {}).length;
+  ta.disabled = tb.disabled = votando;
   const est = t.querySelector('[data-chat-estado]');
   if(est){ est.textContent = Chat.texto; est.classList.toggle('ok', Chat.conectado); }
   t.querySelector('[data-act="chat"]').textContent = Chat.quiere ? 'Desconectar chat' : 'Conectar chat';
@@ -1866,11 +2095,21 @@ function accion(id, act){
     case 'edetener': return Enc.cerrar();
     case 'edesempatar': return Enc.desempatar();
     case 'ereiniciar': return Enc.reiniciar();
+    case 'pfsig': return PF.siguiente();
+    case 'pfini': return PF.iniciar();
+    case 'pfdet': return PF.cerrar();
+    case 'pfhist': return PF.borrarHistorial();
+    case 'pfreset': {
+      if(PF.activo) return;
+      PF.set('manual', { ...PF.datos.manual, i:-1 });
+      return toast('La siguiente pregunta será la fila 1');
+    }
     case 'mostrar': {
       const tipo = estado[id].tipo;
       if(tipo === 'tirada') return mostrarEspera(id);
       if(tipo === 'votacion') return mostrarEsperaVotacion();
       if(tipo === 'encuesta' && opcionesEnc().length < 2) return toast('Escribe al menos 2 opciones');
+      if(tipo === 'prefieres' && !(estado[id].datos && estado[id].datos.a)) return toast('Primero dale a Siguiente pregunta');
       if(tipo === 'horoscopo' && !(estado[id].datos && estado[id].datos.h)) return toast('Primero elige un signo');
       return update(id, { visible:true });
     }
@@ -1925,6 +2164,11 @@ function eventos(){
     }
     const t = ev.target.closest('.tarjeta[data-el]'); if(!t) return;
     const id = t.dataset.el;
+    const pfm = ev.target.closest('[data-pf-modo]');
+    if(pfm){
+      if((estado[id].vot || {}).fase === 'votando') return toast('No se puede cambiar durante la votación');
+      return update(id, { opc:{ ...(estado[id].opc || {}), modo:pfm.dataset.pfModo } });
+    }
     const md = ev.target.closest('[data-modo]');
     if(md){
       const fase = (estado[id].vot || {}).fase;
@@ -1963,6 +2207,11 @@ function eventos(){
       sub.value = '';
       return Cat.subir(c, files, grupo);
     }
+    if(ev.target.matches('[data-pf-archivo]')){
+      const f = ev.target.files[0]; ev.target.value = '';
+      if(f) PF.cargarArchivo(f);
+      return;
+    }
     if(ev.target.matches('[data-horo-archivo]')){
       const f = ev.target.files[0]; ev.target.value = '';
       if(f) Horo.cargar(f);
@@ -1981,6 +2230,14 @@ function eventos(){
   cont.addEventListener('input', ev => {
     const bus = ev.target.closest('[data-buscar]');
     if(bus){ clearTimeout(bus._t); bus._t = setTimeout(() => Cat.pintarGrid(bus.closest('[data-cat]').dataset.cat), 200); return; }
+    const pft = ev.target.closest('[data-pf-a], [data-pf-b]');
+    if(pft){
+      const t = pft.closest('.tarjeta');
+      const leer = sel => t.querySelector(sel).value.split('\n').map(x => x.trim()).filter(Boolean).map(x => x.slice(0, 140));
+      clearTimeout(t._pt); t._pfPend = true;
+      t._pt = setTimeout(() => { t._pfPend = false; PF.set('manual', { a:leer('[data-pf-a]'), b:leer('[data-pf-b]'), i:PF.datos.manual.i }); }, 400);
+      return;
+    }
     const enc = ev.target.closest('[data-enc], [data-enc-pregunta]');
     if(enc){
       const t = enc.closest('.tarjeta');
@@ -2099,7 +2356,7 @@ function eventos(){
   new ResizeObserver(() => { $('#previa').style.transform = `scale(${$('#escenario').clientWidth / ANCHO})`; }).observe($('#escenario'));
 
   // Mientras una ruleta gira, el panel actualiza su estado ("Girando..." y luego el ganador)
-  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta' || estado[id].tipo === 'votacion' || estado[id].tipo === 'encuesta') pintarTarjeta(id); }, 500);
+  setInterval(() => { for(const id in estado) if(estado[id].tipo === 'ruleta' || estado[id].tipo === 'votacion' || estado[id].tipo === 'encuesta' || estado[id].tipo === 'prefieres') pintarTarjeta(id); }, 500);
 }
 
 /* ---------- Link, descarga y utilidades ---------- */
