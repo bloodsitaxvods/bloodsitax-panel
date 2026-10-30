@@ -234,6 +234,23 @@ a{color:var(--rosa)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;background:var(--blanco);color:var(--negro);font-weight:700;
   padding:10px 18px;border-radius:999px;transition:opacity .2s, transform .2s;pointer-events:none;z-index:60;max-width:90vw;text-align:center}
 .toast.ver{opacity:1;transform:translate(-50%,0)}
+
+/* Apariencia */
+.apar-fila{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0 12px}
+@media (max-width:620px){.apar-fila{grid-template-columns:1fr}}
+.apar-vista,.apar-demo{position:relative;height:170px;border:1px solid var(--linea);border-radius:10px;display:grid;place-items:center;overflow:hidden;
+  background:conic-gradient(#120d0f 25%,#1a1316 0 50%,#120d0f 0 75%,#1a1316 0) 0 0/14px 14px}
+.apar-vista img{position:absolute;inset:0;margin:auto;max-width:88%;max-height:80%;object-fit:contain}
+.apar-etq{z-index:1}
+.apar-vista span,.apar-demo > span{color:var(--tenue);font-size:13px;text-align:center;padding:10px}
+.apar-etq{position:absolute;left:8px;top:6px;font-size:11px;font-weight:800;color:var(--tenue);letter-spacing:.06em;text-transform:uppercase}
+.apar-demo-caja{box-sizing:border-box;display:grid;place-items:center;color:var(--blanco);font-weight:800;font-size:15px;
+  border-style:solid;border-color:transparent;background:rgba(13,13,13,.92);background-clip:padding-box}
+.apar-redondo{width:110px;height:110px;display:grid;place-items:center;font-size:40px;font-weight:800;color:var(--blanco);
+  background-position:center;background-size:contain;background-repeat:no-repeat;text-shadow:0 2px 5px #000}
+.apar-medida{display:inline-block;background:var(--negro);border:1px solid var(--linea);border-radius:8px;padding:1px 8px;color:var(--rosa);font-weight:700}
+.apar .filas{margin-top:10px}
+.apar .fila{grid-template-columns:120px 1fr 86px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -363,6 +380,7 @@ const PESTANAS = [
   { id:'lista', nombre:'Lista', elementos:['lista-jugadores'] },
   { id:'votaciones', nombre:'Votaciones', elementos:['encuesta','chat-encuesta'] },
   { id:'prefieres', nombre:'Qué prefieres', elementos:['prefieres','chat-prefieres'] },
+  { id:'apariencia', nombre:'Apariencia', elementos:[], apariencia:true },
   { id:'catalogo', nombre:'Catálogo', elementos:[], catalogo:true }
 ];
 // Categorías del catálogo. lado = tamaño máximo al que se comprime cada imagen.
@@ -461,6 +479,7 @@ const Sync = {
       Cat.iniciarLocal();
       Horo.iniciarLocal();
       PF.iniciarLocal();
+      Apar.iniciarLocal();
       this.guardarLocal();
       pintarRandom(true);
       pintarTodo();
@@ -486,12 +505,13 @@ const Sync = {
     Cat.conectar(db);
     Horo.conectar(db);
     PF.conectar(db);
+    Apar.conectar(db);
     this.raiz.child('imagenes').on('value', s => { imagenes = s.val() || {}; pintarRandom(true); });
     db.ref('.info/connected').on('value', s => conexion(!!s.val(), s.val() ? 'Conectado a Firebase' : 'Reconectando'));
   },
   enviar(id, patch){
     this.pend[id] = Object.assign(this.pend[id] || {}, patch);
-    if(!this.timer) this.timer = setTimeout(() => this.vaciar(), 70);
+    if(!this.timer) this.timer = setTimeout(() => this.vaciar(), 50);
   },
   vaciar(){
     const p = this.pend; this.pend = {}; this.timer = null;
@@ -521,22 +541,41 @@ const Sync = {
   }
 };
 
+// Solo se repinta lo que de verdad cambió (antes cada eco de Firebase repintaba todas las tarjetas)
+const firmasRemotas = {};
 function aplicarRemoto(v){
-  const t = performance.now();
-  for(const id of Object.keys(estado)) if(!ELEMENTOS[id] && !v[id] && t - (editadoEn[id] || 0) > 2000) delete estado[id];
+  const t = performance.now(), cambiados = [];
+  let quitados = false;
+  for(const id of Object.keys(estado)) if(!ELEMENTOS[id] && !v[id] && t - (editadoEn[id] || 0) > 2000){ delete estado[id]; delete firmasRemotas[id]; quitados = true; }
   for(const id in v){
+    const firma = JSON.stringify(v[id]);
+    if(firmasRemotas[id] === firma) continue;
+    firmasRemotas[id] = firma;
     if(estado[id] && t - (editadoEn[id] || 0) < BLOQUEO) continue;
     estado[id] = ELEMENTOS[id] ? { ...porDefecto(id), ...v[id] } : v[id];
+    cambiados.push(id);
   }
   pintarRandom();
-  pintarTodo();
+  if(quitados) pintarCajas();
+  cambiados.forEach(pintar);
 }
 
+// Campos de posición: al cambiarlos solo se actualizan los números y la caja del escenario
+const CAMPOS_POS = new Set(['x', 'y', 'escala', 'rot', 'opacidad', 'capa']);
+function pintarCampos(id){
+  const t = document.querySelector(`.tarjeta[data-el="${id}"]`); if(!t) return;
+  const e = estado[id];
+  t.querySelectorAll('[data-campo]').forEach(inp => {
+    if(inp === document.activeElement && inp.type === 'number') return;
+    inp.value = valorUI(inp.dataset.campo, e);
+  });
+}
 function update(id, patch){
   if(!estado[id]) return;
   Object.assign(estado[id], patch);
   editadoEn[id] = performance.now();
-  pintar(id);
+  if(Object.keys(patch).every(k => CAMPOS_POS.has(k))){ pintarCampos(id); pintarCaja(id); }
+  else pintar(id);
   Sync.enviar(id, patch);
 }
 
@@ -638,7 +677,7 @@ function tarjeta(id){
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'encuesta'){
     cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
-      <div class="form-fila"><input class="campo" data-enc-pregunta maxlength="80" placeholder="Pregunta o título (opcional)"></div>
+      <div class="form-fila"><input class="campo" data-enc-pregunta maxlength="120" placeholder="Pregunta (aparece en la píldora de arriba, junto al tiempo)"></div>
       <textarea class="lista" data-enc placeholder="Una opción por línea (hasta 8). Cada una será una carta: A, B, C..." aria-label="Opciones de la votación"></textarea>
       <div class="lista-info"><span data-enc-conteo>0 de 8 opciones</span></div>
       <div class="acciones">
@@ -770,6 +809,7 @@ function construir(){
     else html += p.elementos.map(tarjeta).join('');
     if(p.imagenes) html += bloqueImagenes();
     if(p.catalogo) html += bloqueCatalogo();
+    if(p.apariencia) html += Apar.bloque();
     cont.insertAdjacentHTML('beforeend', html + '</div>');
   });
 }
@@ -1748,6 +1788,281 @@ function pintarPrefieres(t, e){
   t.querySelector('[data-act="chat"]').textContent = Chat.quiere ? 'Desconectar chat' : 'Conectar chat';
 }
 
+
+/* ---------- Apariencia: espacios para marcos propios ---------- */
+// Cada pieza se sube con fondo verde #00FF00; aquí se le quita el verde, se recorta el sobrante
+// y se guarda en Firebase. El overlay la aplica con recorte en 9 partes (esquinas intactas, lados estirados).
+const PIEZAS_INFO = {
+  marco:    { nombre:'Marco de las cartas', medida:'1536 x 1024', usa:'las cartas A, B, C... de Votaciones', tipo:'borde', demo:[240,150],
+              ctr:['s','sh','g','f','o','r'], def:{ s:22, g:46, f:20, o:0, r:24 } },
+  banner:   { nombre:'Banner de la pregunta', medida:'1536 x 512', usa:'la píldora donde va la pregunta', tipo:'borde', demo:[260,80],
+              ctr:['s','sh','g','f','o','r'], def:{ s:42, g:34, f:10, o:0, r:200 } },
+  insignia: { nombre:'Insignia de letra', medida:'1024 x 1024', usa:'el círculo de la letra (la letra la pone el overlay)', tipo:'redondo', texto:'A',
+              ctr:['e'], def:{ e:130 } },
+  reloj:    { nombre:'Anillo del temporizador', medida:'1024 x 1024', usa:'el círculo de los segundos', tipo:'redondo', texto:'18',
+              ctr:['e'], def:{ e:130 } },
+  barra:    { nombre:'Marco de la barra', medida:'1536 x 512', usa:'las barras de porcentaje', tipo:'borde', demo:[260,40],
+              ctr:['s','sh','g','f','alto','r'], def:{ s:45, g:10, f:4, alto:30, r:999 } }
+};
+const CONTROLES_APAR = {
+  s:   ['Esquinas (alto)', 5, 50, '%'],
+  sh:  ['Esquinas (ancho)', 2, 50, '%'],
+  g:   ['Grosor', 4, 160, 'px'],
+  f:   ['Margen del fondo', 0, 160, 'px'],
+  o:   ['Sobresale', 0, 60, 'px'],
+  r:   ['Redondeo interior', 0, 300, 'px'],
+  e:   ['Tamaño', 60, 220, '%'],
+  alto:['Alto', 12, 80, 'px'],
+  tol: ['Quitar verde', 0, 100, '']
+};
+// Quita el verde uniforme, limpia el borde verdoso, recorta lo que sobra y reduce el tamaño
+async function quitarVerde(file, tol){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await cargarImagen(url);
+    const f0 = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+    const W = Math.round(img.naturalWidth * f0), H = Math.round(img.naturalHeight * f0);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d', { willReadFrequently:true });
+    x.drawImage(img, 0, 0, W, H);
+    const datos = x.getImageData(0, 0, W, H), d = datos.data;
+    const bajo = 55 - tol * .5, alto = bajo + 50; // con más tolerancia se quita más verde
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for(let i = 0, p = 0; i < d.length; i += 4, p++){
+      const r = d[i], g = d[i + 1], b = d[i + 2], m = Math.max(r, b), dif = g - m;
+      if(dif > alto && g > 70) d[i + 3] = 0;
+      else if(dif > bajo && g > 70) d[i + 3] = Math.round(d[i + 3] * (1 - (dif - bajo) / (alto - bajo)));
+      if(g > m) d[i + 1] = m; // quita el tinte verde de los bordes
+      if(d[i + 3] > 10){ const px = p % W, py = (p / W) | 0; if(px < x0) x0 = px; if(px > x1) x1 = px; if(py < y0) y0 = py; if(py > y1) y1 = py; }
+    }
+    if(x1 < 0) throw new Error('La imagen quedó vacía: parece que todo era verde. Baja "Quitar verde".');
+    x.putImageData(datos, 0, 0);
+    const cw = x1 - x0 + 1, ch = y1 - y0 + 1, f = Math.min(1, 1200 / Math.max(cw, ch));
+    const o = document.createElement('canvas'); o.width = Math.round(cw * f); o.height = Math.round(ch * f);
+    const ox = o.getContext('2d'); ox.imageSmoothingQuality = 'high';
+    ox.drawImage(c, x0, y0, cw, ch, 0, 0, o.width, o.height);
+    for(const q of [.92, .85, .75, .65]){
+      const src = o.toDataURL('image/webp', q);
+      if(src.startsWith('data:image/webp') && src.length < 900000) return { src, w:o.width, h:o.height };
+    }
+    const png = o.toDataURL('image/png');
+    if(png.length < 1400000) return { src:png, w:o.width, h:o.height };
+    throw new Error('La imagen sigue muy pesada. Prueba con una más simple.');
+  } finally { URL.revokeObjectURL(url); }
+}
+const Apar = {
+  datos:{ piezas:{}, ajustes:{ fondo:92, brillo:0 } }, db:null, ref:null, originales:{}, srcs:{}, timers:{}, vistos:{},
+  // Si la imagen cambió desde otro lado, se olvida la copia guardada para pedir la nueva
+  revisarVersiones(){
+    for(const p in PIEZAS_INFO){
+      const v = (this.datos.piezas[p] || {}).v || '';
+      if(this.vistos[p] !== v){ if(this.vistos[p] !== undefined) delete this.srcs[p]; this.vistos[p] = v; }
+    }
+  },
+  conectar(db){
+    this.db = db; this.ref = db.ref(`overlay/${sala}/apariencia`);
+    this.ref.child('piezas').on('value', s => { this.datos.piezas = s.val() || {}; this.revisarVersiones(); this.pintar(); });
+    this.ref.child('ajustes').on('value', s => { this.datos.ajustes = { fondo:92, brillo:0, ...(s.val() || {}) }; this.pintar(); });
+  },
+  iniciarLocal(){
+    try{ const v = JSON.parse(leerLS('bsx-apar-' + sala) || 'null'); if(v) this.datos = { piezas:v.piezas || {}, ajustes:{ fondo:92, brillo:0, ...(v.ajustes || {}) } }; }catch{}
+    this.pintar();
+  },
+  avisarLocal(){
+    guardarLS('bsx-apar-' + sala, JSON.stringify(this.datos));
+    if(Sync.canal) Sync.canal.postMessage({ apariencia:this.datos });
+  },
+  async leerImg(p, previo){
+    const k = previo ? 'previo/' + p + '/src' : 'img/' + p;
+    if(!previo && this.srcs[p]) return this.srcs[p];
+    const v = this.ref ? (await this.ref.child(k).once('value')).val() : leerLS(`bsx-apar-${previo ? 'prev' : 'img'}-${sala}-${p}`);
+    if(!previo && v) this.srcs[p] = v;
+    return v;
+  },
+  async escribir(up){
+    if(this.ref) return this.ref.update(up);
+    for(const ruta in up){
+      const v = up[ruta], [a, b, c] = ruta.split('/');
+      if(a === 'img') v === null ? localStorage.removeItem(`bsx-apar-img-${sala}-${b}`) : guardarLS(`bsx-apar-img-${sala}-${b}`, v);
+      else if(a === 'previo' && c === 'src') v === null ? localStorage.removeItem(`bsx-apar-prev-${sala}-${b}`) : guardarLS(`bsx-apar-prev-${sala}-${b}`, v);
+      else if(a === 'previo') this.datos.previo = { ...(this.datos.previo || {}), [b]:v };
+      else if(a === 'piezas'){ if(c){ this.datos.piezas[b] = { ...(this.datos.piezas[b] || {}), [c]:v }; } else if(v === null) delete this.datos.piezas[b]; else this.datos.piezas[b] = v; }
+      else if(a === 'ajustes') this.datos.ajustes = { ...this.datos.ajustes, [b]:v };
+    }
+    this.avisarLocal(); this.pintar();
+  },
+  estado(p, t){ const el = document.querySelector(`[data-pieza="${p}"] [data-apar-estado]`); if(el) el.textContent = t; },
+  async subir(p, file){
+    if(!file || !file.type.startsWith('image/')) return this.estado(p, 'Ese archivo no es una imagen.');
+    this.originales[p] = file;
+    const info = PIEZAS_INFO[p], actual = this.datos.piezas[p];
+    const tol = actual && actual.tol != null ? actual.tol : 50;
+    this.estado(p, 'Quitando el verde...');
+    try{
+      const r = await quitarVerde(file, tol);
+      const meta = { ...info.def, ...(actual ? pick(actual, info.ctr) : {}), v:idAleatorio(8), w:r.w, h:r.h, tol, archivo:file.name.slice(0, 60) };
+      // Si es la primera vez, el ancho de las esquinas se calcula para que queden cuadradas
+      if(info.ctr.includes('sh') && !(actual && actual.sh != null)) meta.sh = Math.round(clamp(meta.s * r.h / r.w * (p === 'marco' ? 1 : 1.6), 2, 50));
+      const up = { [`img/${p}`]:r.src, [`piezas/${p}`]:meta };
+      if(actual && actual.v){
+        const viejo = await this.leerImg(p);
+        if(viejo){ up[`previo/${p}/src`] = viejo; up[`previo/${p}/meta`] = actual; }
+      }
+      this.srcs[p] = r.src; this.vistos[p] = meta.v;
+      await this.escribir(up);
+      this.estado(p, `Listo: ${r.w} x ${r.h} px ya sin verde. Ajusta las esquinas hasta que se vea bien.`);
+    }catch(e){ this.estado(p, e.message || 'No se pudo procesar la imagen.'); }
+  },
+  async reprocesar(p){
+    const file = this.originales[p];
+    if(!file) return this.estado(p, 'Para cambiar "Quitar verde" vuelve a subir la imagen (el original no se guarda).');
+    const actual = this.datos.piezas[p] || {};
+    this.estado(p, 'Quitando el verde...');
+    try{
+      const r = await quitarVerde(file, actual.tol ?? 50);
+      const v = idAleatorio(8);
+      this.srcs[p] = r.src; this.vistos[p] = v;
+      await this.escribir({ [`img/${p}`]:r.src, [`piezas/${p}`]:{ ...actual, v, w:r.w, h:r.h } });
+      this.estado(p, 'Listo.');
+    }catch(e){ this.estado(p, e.message); }
+  },
+  async anterior(p){
+    let prev;
+    if(this.ref) prev = (await this.ref.child('previo/' + p + '/meta').once('value')).val();
+    else prev = (this.datos.previo || {})[p];
+    const prevSrc = prev ? await this.leerImg(p, true) : null;
+    if(!prev || !prevSrc) return toast('No hay un marco anterior guardado para esta pieza');
+    const actual = this.datos.piezas[p], actualSrc = actual ? await this.leerImg(p) : null;
+    const nv = idAleatorio(8);
+    const up = { [`img/${p}`]:prevSrc, [`piezas/${p}`]:{ ...prev, v:nv } };
+    this.vistos[p] = nv;
+    up[`previo/${p}/src`] = actualSrc || null; up[`previo/${p}/meta`] = actualSrc ? actual : null;
+    this.srcs[p] = prevSrc; delete this.originales[p];
+    await this.escribir(up);
+    toast('Se restauró el marco anterior');
+  },
+  async quitar(p){
+    const actual = this.datos.piezas[p]; if(!actual) return;
+    if(!confirm('¿Quitar esta pieza? El overlay vuelve al diseño normal. Podrás recuperarla con "Volver al anterior".')) return;
+    const src = await this.leerImg(p);
+    delete this.srcs[p]; delete this.originales[p];
+    await this.escribir({ [`previo/${p}/src`]:src, [`previo/${p}/meta`]:actual, [`img/${p}`]:null, [`piezas/${p}`]:null });
+  },
+  campo(p, k, v){
+    if(p === 'general'){
+      this.datos.ajustes[k] = v; this.pintar();
+      clearTimeout(this.timers[p + k]);
+      this.timers[p + k] = setTimeout(() => this.escribir({ [`ajustes/${k}`]:v }), 120);
+      return;
+    }
+    const m = this.datos.piezas[p];
+    if(k === 'tol'){
+      if(!m) return;
+      m.tol = v;
+      clearTimeout(this.timers[p + k]);
+      this.timers[p + k] = setTimeout(() => this.escribir({ [`piezas/${p}/tol`]:v }).then(() => this.reprocesar(p)), 350);
+      return;
+    }
+    if(!m) return;
+    m[k] = v; this.pintarDemo(p);
+    clearTimeout(this.timers[p + k]);
+    this.timers[p + k] = setTimeout(() => this.escribir({ [`piezas/${p}/${k}`]:v }), 120);
+  },
+  bloque(){
+    const fila = (p, k, extra) => {
+      const [et, min, max, u] = CONTROLES_APAR[k];
+      return `<div class="fila"><span>${et}</span>
+        <input type="range" data-apar-campo="${k}" min="${min}" max="${max}" step="1" aria-label="${et}" ${extra || ''}>
+        <span class="num"><input type="number" data-apar-campo="${k}" min="${min}" max="${max}" step="1" aria-label="${et}"><em>${u}</em></span></div>`;
+    };
+    const general = `<article class="tarjeta apar" data-pieza="general">
+        <header class="tarjeta-cab"><h3>Ajustes generales</h3></header>
+        <div class="filas">
+          <div class="fila"><span>Fondo de cartas</span><input type="range" data-apar-campo="fondo" min="0" max="100" step="1" aria-label="Opacidad del fondo de las cartas">
+            <span class="num"><input type="number" data-apar-campo="fondo" min="0" max="100" step="1" aria-label="Opacidad del fondo"><em>%</em></span></div>
+        </div>
+        <div class="opciones"><label class="opcion">Brillo de los marcos <select data-apar-brillo>
+          <option value="0">Apagado</option><option value="1">Suave</option><option value="2">Fuerte</option></select></label></div>
+        <p class="nota">El brillo cuesta un poco de rendimiento en OBS; si notas lentitud, déjalo en Apagado.</p>
+      </article>`;
+    return `<p class="nota" style="margin:0 0 14px">Sube cada pieza con <b>fondo verde #00FF00</b> (también por dentro). Aquí se le quita el verde y se recorta sola. Mientras una pieza esté vacía, el overlay usa su diseño normal. Por ahora se aplican en la pestaña Votaciones.</p>`
+      + general + Object.keys(PIEZAS_INFO).map(p => {
+      const i = PIEZAS_INFO[p];
+      const demo = i.tipo === 'borde'
+        ? `<div class="apar-demo-caja" data-apar-demo style="width:${i.demo[0]}px;height:${i.demo[1]}px">${p === 'barra' ? '' : 'Texto de prueba'}</div>`
+        : `<div class="apar-redondo" data-apar-demo>${i.texto}</div>`;
+      return `<article class="tarjeta apar" data-pieza="${p}">
+        <header class="tarjeta-cab"><h3>${i.nombre}</h3><span class="pill" data-apar-pill>Sin imagen</span></header>
+        <p class="nota">Genérala de <span class="apar-medida">${i.medida}</span>. Se usa en ${i.usa}.</p>
+        <div class="apar-fila">
+          <div class="apar-vista"><span class="apar-etq">Imagen</span><img data-apar-img alt="" hidden><span data-apar-vacio>Aún no hay imagen</span></div>
+          <div class="apar-demo"><span class="apar-etq">Vista</span>${demo}</div>
+        </div>
+        <div class="form-fila">
+          <label class="btn principal archivo">Subir imagen<input type="file" accept="image/*" data-apar-subir></label>
+          <button class="btn" data-apar-act="anterior">Volver al anterior</button>
+          <button class="btn quitar" data-apar-act="quitar">Quitar</button>
+        </div>
+        <div class="filas">${[...i.ctr, 'tol'].map(k => fila(p, k)).join('')}</div>
+        <p class="nota" data-apar-estado></p>
+      </article>`;
+    }).join('');
+  },
+  async pintar(){
+    const g = document.querySelector('[data-pieza="general"]');
+    if(g){
+      g.querySelectorAll('[data-apar-campo]').forEach(inp => { if(inp !== document.activeElement) inp.value = this.datos.ajustes[inp.dataset.aparCampo] ?? 92; });
+      const sel = g.querySelector('[data-apar-brillo]'); if(sel !== document.activeElement) sel.value = String(this.datos.ajustes.brillo || 0);
+    }
+    for(const p in PIEZAS_INFO){
+      const t = document.querySelector(`[data-pieza="${p}"]`); if(!t) continue;
+      const m = this.datos.piezas[p], info = PIEZAS_INFO[p];
+      t.querySelector('[data-apar-pill]').textContent = m ? 'En uso' : 'Sin imagen';
+      t.classList.toggle('on', !!m);
+      t.querySelectorAll('[data-apar-campo]').forEach(inp => {
+        const k = inp.dataset.aparCampo;
+        inp.disabled = !m;
+        if(inp !== document.activeElement) inp.value = m ? (m[k] ?? (k === 'tol' ? 50 : info.def[k] ?? 0)) : (k === 'tol' ? 50 : info.def[k] ?? 0);
+      });
+      t.querySelector('[data-apar-act="quitar"]').disabled = !m;
+      const img = t.querySelector('[data-apar-img]'), vacio = t.querySelector('[data-apar-vacio]');
+      if(!m){ img.hidden = true; vacio.hidden = false; img._v = ''; this.pintarDemo(p); continue; }
+      if(img._v !== m.v){
+        img._v = m.v;
+        const src = await this.leerImg(p).catch(() => null);
+        if(src && img._v === m.v){ img.src = src; img.hidden = false; vacio.hidden = true; }
+      }
+      this.pintarDemo(p);
+    }
+  },
+  pintarDemo(p){
+    const t = document.querySelector(`[data-pieza="${p}"]`); if(!t) return;
+    const el = t.querySelector('[data-apar-demo]'), m = this.datos.piezas[p], info = PIEZAS_INFO[p], src = this.srcs[p];
+    if(info.tipo === 'redondo'){
+      if(m && src){ el.style.backgroundImage = `url("${src}")`; el.style.borderRadius = '0'; el.style.transform = `scale(${(m.e ?? 130) / 130})`; }
+      else { el.style.backgroundImage = 'radial-gradient(circle at 35% 30%,#FF4DA0,#FF007F 60%,#C90064)'; el.style.borderRadius = '50%'; el.style.transform = ''; }
+      return;
+    }
+    if(!m || !src){
+      el.style.background = ''; el.style.backgroundOrigin = el.style.backgroundClip = '';
+      el.style.borderImage = 'none'; el.style.borderWidth = '3px'; el.style.borderColor = '#FF007F'; el.style.borderRadius = p === 'marco' ? '16px' : '999px';
+      return;
+    }
+    // Vista a escala reducida (40%) de cómo se corta y estira el marco
+    const k = .4, sv = Math.max(1, Math.round(m.h * (m.s ?? 20) / 100)), sh = Math.max(1, Math.round(m.w * (m.sh ?? 20) / 100));
+    const gv = Math.max(2, Math.round((m.g ?? 40) * k)), gh = Math.round(gv * sh / sv);
+    el.style.borderColor = 'transparent';
+    el.style.borderWidth = `${gv}px ${gh}px`;
+    el.style.borderRadius = Math.round((m.r ?? 24) * k) + 'px';
+    el.style.borderImage = `url("${src}") ${sv} ${sh} / ${gv}px ${gh}px / ${Math.round((m.o || 0) * k)}px stretch`;
+    const fv = Math.round((m.f ?? 20) * k);
+    el.style.background = `linear-gradient(rgba(13,13,13,.92),rgba(13,13,13,.92)) center / calc(100% - ${fv * 2}px) calc(100% - ${fv * 2}px) no-repeat`;
+    el.style.backgroundOrigin = el.style.backgroundClip = 'border-box';
+    if(p === 'barra') el.style.height = Math.max(gv * 2 + 4, Math.round((m.alto ?? 30) * k * 1.6)) + 'px';
+  }
+};
+const pick = (o, ks) => Object.fromEntries(ks.filter(k => o[k] != null).map(k => [k, o[k]]));
+
 /* ---------- Almacenamiento local (modo sin Firebase) ---------- */
 const idb = {
   db:null,
@@ -2152,6 +2467,8 @@ function eventos(){
     }
     if(ev.target.closest('#agregarUrl')) return manejarImagen(desdeLink($('#urlImg').value.trim()), 'Imagen', 'link');
     if(ev.target.closest('#exportarCat')) return Cat.exportar();
+    const apa = ev.target.closest('[data-apar-act]');
+    if(apa){ const p = apa.closest('[data-pieza]').dataset.pieza; return apa.dataset.aparAct === 'anterior' ? Apar.anterior(p) : Apar.quitar(p); }
     const caja = ev.target.closest('[data-cat]');
     if(caja){
       const c = caja.dataset.cat;
@@ -2197,6 +2514,12 @@ function eventos(){
     }
   });
   cont.addEventListener('change', ev => {
+    if(ev.target.matches('[data-apar-subir]')){
+      const f = ev.target.files[0], p = ev.target.closest('[data-pieza]').dataset.pieza; ev.target.value = '';
+      if(f) Apar.subir(p, f);
+      return;
+    }
+    if(ev.target.matches('[data-apar-brillo]')) return Apar.campo('general', 'brillo', Number(ev.target.value));
     const vis = ev.target.closest('[data-visible]');
     if(vis) return update(vis.closest('.tarjeta').dataset.el, { visible:vis.checked });
     const chk = ev.target.closest('[data-opc-check]');
@@ -2238,6 +2561,14 @@ function eventos(){
   });
   cont.addEventListener('pointerdown', ev => { const t = ev.target.closest('.tarjeta[data-el]'); if(t && seleccionado !== t.dataset.el) seleccionar(t.dataset.el, false); });
   cont.addEventListener('input', ev => {
+    const apc = ev.target.closest('[data-apar-campo]');
+    if(apc){
+      const v = Number(apc.value); if(apc.value === '' || Number.isNaN(v)) return;
+      const t = apc.closest('[data-pieza]'), k = apc.dataset.aparCampo;
+      const val = clamp(v, Number(apc.min), Number(apc.max));
+      t.querySelectorAll(`[data-apar-campo="${k}"]`).forEach(o => { if(o !== apc) o.value = val; });
+      return Apar.campo(t.dataset.pieza, k, val);
+    }
     const bus = ev.target.closest('[data-buscar]');
     if(bus){ clearTimeout(bus._t); bus._t = setTimeout(() => Cat.pintarGrid(bus.closest('[data-cat]').dataset.cat), 200); return; }
     const pft = ev.target.closest('[data-pf-a], [data-pf-b]');
@@ -2307,15 +2638,20 @@ function eventos(){
     const ini = { px:ev.clientX, py:ev.clientY, x:e.x, y:e.y, esc:e.escala };
     const redim = ev.target.classList.contains('tirador');
     c.setPointerCapture(ev.pointerId); c.classList.add('arrastrando');
-    const mover = m => {
-      const dx = (m.clientX - ini.px) * f, dy = (m.clientY - ini.py) * f;
+    // El mouse puede mandar más de 100 movimientos por segundo: se procesa solo el último de cada cuadro
+    let ultimo = null, raf = 0;
+    const procesar = () => {
+      raf = 0; if(!ultimo) return;
+      const dx = (ultimo.clientX - ini.px) * f, dy = (ultimo.clientY - ini.py) * f;
       if(redim){
         const delta = (dx + dy * (e.w / e.h)) / 2;
         update(id, { escala: +clamp((e.w * ini.esc + delta * 2) / e.w, .1, 3).toFixed(3) });
       } else update(id, { x: Math.round(clamp(ini.x + dx, 0, ANCHO)), y: Math.round(clamp(ini.y + dy, 0, ALTO)) });
     };
+    const mover = m => { ultimo = m; if(!raf) raf = requestAnimationFrame(procesar); };
     const fin = () => {
       c.removeEventListener('pointermove', mover); c.removeEventListener('pointerup', fin); c.removeEventListener('pointercancel', fin);
+      if(raf){ cancelAnimationFrame(raf); procesar(); }
       c.classList.remove('arrastrando');
     };
     c.addEventListener('pointermove', mover); c.addEventListener('pointerup', fin); c.addEventListener('pointercancel', fin);
