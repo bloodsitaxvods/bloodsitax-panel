@@ -1795,8 +1795,10 @@ function pintarPrefieres(t, e){
 const PIEZAS_INFO = {
   marco:    { nombre:'Marco de las cartas', medida:'1536 x 1024', usa:'las cartas A, B, C... de Votaciones', tipo:'borde', demo:[240,150],
               ctr:['s','sh','g','f','o','r'], def:{ s:22, g:46, f:20, o:0, r:24 } },
-  banner:   { nombre:'Banner de la pregunta', medida:'1536 x 512', usa:'la píldora donde va la pregunta', tipo:'borde', demo:[260,80],
-              ctr:['s','sh','g','f','o','r'], def:{ s:42, g:34, f:10, o:0, r:200 } },
+  banner:   { nombre:'Banner de la pregunta', medida:'1536 x 512', usa:'la píldora donde va la pregunta', tipo:'tira', demo:[300,80],
+              ctr:['sh','alto','f','fl'], def:{ sh:24, alto:100, f:14, fl:40 },
+              etq:{ sh:'Ancho de los adornos', alto:'Alto del banner', f:'Margen arriba y abajo', fl:'Fondo hacia los lados' },
+              rangos:{ sh:[5, 45], alto:[50, 220], f:[0, 80], fl:[0, 100] }, unid:{ fl:'%' } },
   insignia: { nombre:'Insignia de letra', medida:'1024 x 1024', usa:'el círculo de la letra (la letra la pone el overlay)', tipo:'redondo', texto:'A',
               ctr:['e'], def:{ e:130 } },
   reloj:    { nombre:'Anillo del temporizador', medida:'1024 x 1024', usa:'el círculo de los segundos', tipo:'redondo', texto:'18',
@@ -1809,6 +1811,7 @@ const CONTROLES_APAR = {
   sh:  ['Esquinas (ancho)', 2, 50, '%'],
   g:   ['Grosor', 4, 160, 'px'],
   f:   ['Margen del fondo', 0, 160, 'px'],
+  fl:  ['Fondo hacia los lados', 0, 100, '%'],
   o:   ['Sobresale', 0, 60, 'px'],
   r:   ['Redondeo interior', 0, 300, 'px'],
   e:   ['Tamaño', 60, 220, '%'],
@@ -1841,12 +1844,30 @@ async function quitarVerde(file, tol){
     const o = document.createElement('canvas'); o.width = Math.round(cw * f); o.height = Math.round(ch * f);
     const ox = o.getContext('2d'); ox.imageSmoothingQuality = 'high';
     ox.drawImage(c, x0, y0, cw, ch, 0, 0, o.width, o.height);
+    // Dónde terminan los adornos de los extremos: columnas con mucho más dibujo que el centro (que solo tiene los rieles)
+    const od = ox.getImageData(0, 0, o.width, o.height).data, cols = new Array(o.width).fill(0);
+    for(let i = 3, p = 0; i < od.length; i += 4, p++) if(od[i] > 60) cols[p % o.width]++;
+    const centro = cols.slice(Math.round(o.width * .4), Math.round(o.width * .6)).sort((a, b) => a - b);
+    const base = centro[centro.length >> 1] || 0, umbral = base * 1.6 + 3;
+    let izq = 0, der = 0;
+    for(let c = 0; c < o.width * .48; c++) if(cols[c] > umbral) izq = c;
+    for(let c = o.width - 1; c > o.width * .52; c--) if(cols[c] > umbral) der = o.width - 1 - c;
+    const ext = Math.round(clamp((Math.max(izq, der) + o.width * .015) * 100 / o.width, 5, 45));
+    // Riel superior en el centro: dónde empieza y qué tan grueso es (para que el fondo oscuro llegue justo a él)
+    const cx = o.width >> 1;
+    let top = -1, grosor = 0;
+    for(let y = 0; y < o.height >> 1; y++){
+      const a = od[(y * o.width + cx) * 4 + 3] > 60;
+      if(a && top < 0) top = y;
+      if(top >= 0){ if(a) grosor = y - top + 1; else break; }
+    }
+    const riel = top >= 0 ? (top + grosor * .5) / o.height : null;
     for(const q of [.92, .85, .75, .65]){
       const src = o.toDataURL('image/webp', q);
-      if(src.startsWith('data:image/webp') && src.length < 900000) return { src, w:o.width, h:o.height };
+      if(src.startsWith('data:image/webp') && src.length < 900000) return { src, w:o.width, h:o.height, ext, riel };
     }
     const png = o.toDataURL('image/png');
-    if(png.length < 1400000) return { src:png, w:o.width, h:o.height };
+    if(png.length < 1400000) return { src:png, w:o.width, h:o.height, ext, riel };
     throw new Error('La imagen sigue muy pesada. Prueba con una más simple.');
   } finally { URL.revokeObjectURL(url); }
 }
@@ -1902,7 +1923,11 @@ const Apar = {
       const r = await quitarVerde(file, tol);
       const meta = { ...info.def, ...(actual ? pick(actual, info.ctr) : {}), v:idAleatorio(8), w:r.w, h:r.h, tol, archivo:file.name.slice(0, 60) };
       // Si es la primera vez, el ancho de las esquinas se calcula para que queden cuadradas
-      if(info.ctr.includes('sh') && !(actual && actual.sh != null)) meta.sh = Math.round(clamp(meta.s * r.h / r.w * (p === 'marco' ? 1 : 1.6), 2, 50));
+      if(info.tipo === 'tira'){
+        meta.sh = r.ext;
+        if(r.riel != null) meta.f = Math.round(clamp((meta.alto ?? 100) * r.riel, 0, 80));
+      }
+      else if(info.ctr.includes('sh') && !(actual && actual.sh != null)) meta.sh = Math.round(clamp(meta.s * r.h / r.w * (p === 'marco' ? 1 : 1.6), 2, 50));
       const up = { [`img/${p}`]:r.src, [`piezas/${p}`]:meta };
       if(actual && actual.v){
         const viejo = await this.leerImg(p);
@@ -1910,7 +1935,9 @@ const Apar = {
       }
       this.srcs[p] = r.src; this.vistos[p] = meta.v;
       await this.escribir(up);
-      this.estado(p, `Listo: ${r.w} x ${r.h} px ya sin verde. Ajusta las esquinas hasta que se vea bien.`);
+      this.estado(p, info.tipo === 'tira'
+        ? `Listo: ${r.w} x ${r.h} px ya sin verde. El ancho de los adornos y el margen se calcularon solos; ajústalos si hace falta.`
+        : `Listo: ${r.w} x ${r.h} px ya sin verde. Ajusta las esquinas hasta que se vea bien.`);
     }catch(e){ this.estado(p, e.message || 'No se pudo procesar la imagen.'); }
   },
   async reprocesar(p){
@@ -1970,7 +1997,11 @@ const Apar = {
   },
   bloque(){
     const fila = (p, k, extra) => {
-      const [et, min, max, u] = CONTROLES_APAR[k];
+      const inf = PIEZAS_INFO[p] || {};
+      let [et, min, max, u] = CONTROLES_APAR[k];
+      if(inf.etq && inf.etq[k]) et = inf.etq[k];
+      if(inf.rangos && inf.rangos[k]) [min, max] = inf.rangos[k];
+      if(inf.unid && inf.unid[k]) u = inf.unid[k];
       return `<div class="fila"><span>${et}</span>
         <input type="range" data-apar-campo="${k}" min="${min}" max="${max}" step="1" aria-label="${et}" ${extra || ''}>
         <span class="num"><input type="number" data-apar-campo="${k}" min="${min}" max="${max}" step="1" aria-label="${et}"><em>${u}</em></span></div>`;
@@ -1988,7 +2019,7 @@ const Apar = {
     return `<p class="nota" style="margin:0 0 14px">Sube cada pieza con <b>fondo verde #00FF00</b> (también por dentro). Aquí se le quita el verde y se recorta sola. Mientras una pieza esté vacía, el overlay usa su diseño normal. Por ahora se aplican en la pestaña Votaciones.</p>`
       + general + Object.keys(PIEZAS_INFO).map(p => {
       const i = PIEZAS_INFO[p];
-      const demo = i.tipo === 'borde'
+      const demo = i.tipo !== 'redondo'
         ? `<div class="apar-demo-caja" data-apar-demo style="width:${i.demo[0]}px;height:${i.demo[1]}px">${p === 'barra' ? '' : 'Texto de prueba'}</div>`
         : `<div class="apar-redondo" data-apar-demo>${i.texto}</div>`;
       return `<article class="tarjeta apar" data-pieza="${p}">
@@ -2038,6 +2069,23 @@ const Apar = {
   pintarDemo(p){
     const t = document.querySelector(`[data-pieza="${p}"]`); if(!t) return;
     const el = t.querySelector('[data-apar-demo]'), m = this.datos.piezas[p], info = PIEZAS_INFO[p], src = this.srcs[p];
+    if(info.tipo === 'tira'){
+      // Vista a 80 px de alto con el mismo recorte en 3 partes que usa el overlay
+      const H = 80;
+      el.style.width = '300px'; el.style.height = H + 'px';
+      if(!m || !src){
+        el.style.borderImage = 'none'; el.style.borderWidth = '3px'; el.style.borderColor = '#FF007F'; el.style.borderRadius = '999px';
+        el.style.background = ''; el.style.backgroundOrigin = el.style.backgroundClip = '';
+        return;
+      }
+      const k = H / (m.alto ?? 100), sl = Math.max(1, Math.round(m.w * (m.sh ?? 24) / 100)), ew = Math.round(H * sl / m.h);
+      el.style.borderRadius = '0'; el.style.borderColor = 'transparent'; el.style.borderWidth = `0 ${ew}px`;
+      el.style.borderImage = `url("${src}") 0 ${sl} fill / 0 ${ew}px / 0 stretch`;
+      const fl = Math.round(ew * (m.fl ?? 40) / 100), fv = Math.round((m.f ?? 14) * k);
+      el.style.background = `linear-gradient(rgba(13,13,13,.92),rgba(13,13,13,.92)) center / calc(100% - ${fl * 2}px) calc(100% - ${fv * 2}px) no-repeat`;
+      el.style.backgroundOrigin = el.style.backgroundClip = 'border-box';
+      return;
+    }
     if(info.tipo === 'redondo'){
       if(m && src){ el.style.backgroundImage = `url("${src}")`; el.style.borderRadius = '0'; el.style.transform = `scale(${(m.e ?? 130) / 130})`; }
       else { el.style.backgroundImage = 'radial-gradient(circle at 35% 30%,#FF4DA0,#FF007F 60%,#C90064)'; el.style.borderRadius = '50%'; el.style.transform = ''; }
