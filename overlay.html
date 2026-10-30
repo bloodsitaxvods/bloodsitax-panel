@@ -290,10 +290,14 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .skin-marco .enc .carta.luz .marco{filter:drop-shadow(0 0 22px rgba(255,255,255,.9))}
 .skin-marco .enc .carta.empata .marco{animation:latidoMarco 1.1s ease-in-out infinite}
 @keyframes latidoMarco{50%{filter:drop-shadow(0 0 18px rgba(255,0,127,.9))}}
-.skin-banner .enc .vot-estado{border-style:solid;border-color:transparent;border-width:var(--mk-banner-g);border-radius:var(--mk-banner-r);
-  border-image:var(--mk-banner) var(--mk-banner-s) / var(--mk-banner-g) / var(--mk-banner-o) stretch;
-  background:linear-gradient(rgba(13,13,13,var(--enc-fondo,.92)),rgba(13,13,13,var(--enc-fondo,.92))) center / calc(100% - 2 * var(--mk-banner-f)) calc(100% - 2 * var(--mk-banner-f)) no-repeat;
-  background-origin:border-box;background-clip:border-box;box-shadow:none;padding:4px 20px}
+/* Banner en 3 partes: los extremos quedan intactos (sin deformarse) y el centro se estira solo a lo ancho */
+.skin-banner .enc .vot-estado,.skin-banner .enc .vot-estado.dos-lineas{box-sizing:border-box;height:var(--mk-banner-alto,100px);
+  display:flex;align-items:center;justify-content:center;text-align:center;border-radius:0;padding:0 10px;box-shadow:none;
+  border-style:solid;border-color:transparent;border-width:0 var(--mk-banner-ew);
+  border-image:var(--mk-banner) 0 var(--mk-banner-sl) fill / 0 var(--mk-banner-ew) / 0 stretch;
+  background:linear-gradient(rgba(13,13,13,var(--enc-fondo,.92)),rgba(13,13,13,var(--enc-fondo,.92))) center / calc(100% - 2 * var(--mk-banner-fl)) calc(100% - 2 * var(--mk-banner-f)) no-repeat;
+  background-origin:border-box;background-clip:border-box}
+.skin-banner .enc .vot-estado.dos-lineas{white-space:normal;line-height:1.12}
 .skin-insignia .enc .letra{background:var(--mk-insignia) center/contain no-repeat;box-shadow:none;
   transform:scale(var(--mk-insignia-esc,1.3));transform-origin:30% 30%;text-shadow:0 2px 5px #000, 0 0 10px rgba(0,0,0,.8)}
 .skin-reloj .enc .reloj{width:calc(96px * var(--mk-reloj-esc,1.3));height:calc(96px * var(--mk-reloj-esc,1.3));background:var(--mk-reloj) center/contain no-repeat}
@@ -924,11 +928,11 @@ function armarEncuesta(c, e, ops){
 
 // La pregunta toma la letra más grande que quepa; si es muy larga pasa a dos líneas
 function ajustarPregunta(el, fase){
-  const clave = el.textContent + '|' + fase + '|' + el.parentNode.clientWidth;
+  const clave = el.textContent + '|' + fase + '|' + el.parentNode.clientWidth + '|' + Apar.gen + '|' + document.body.className;
   if(el._clave === clave) return;
   el._clave = clave;
   el.classList.remove('dos-lineas');
-  let fs = 38;
+  let fs = Math.min(40, Math.max(24, el.clientHeight * .42)) || 38;
   el.style.fontSize = fs + 'px';
   while(el.scrollWidth > el.clientWidth + 1 && fs > 24){ fs -= 2; el.style.fontSize = fs + 'px'; }
   if(el.scrollWidth > el.clientWidth + 1){
@@ -1124,9 +1128,10 @@ function aplicar(forzar){
 const PIEZAS = ['marco', 'insignia', 'banner', 'reloj', 'barra'];
 const Apar = {
   meta:{}, urls:{}, versiones:{},
+  gen:0,
   aplicar(v){
     v = v || {};
-    this.meta = v;
+    this.meta = v; this.gen++;
     const piezas = v.piezas || {}, aj = v.ajustes || {}, raiz = document.documentElement.style;
     raiz.setProperty('--enc-fondo', String((aj.fondo ?? 92) / 100));
     document.body.dataset.brillo = String(aj.brillo || 0);
@@ -1144,6 +1149,15 @@ const Apar = {
       raiz.setProperty(`--mk-${p}-f`, (m.f ?? 20) + 'px');
       raiz.setProperty(`--mk-${p}-esc`, String((m.e ?? 130) / 100));
       if(m.alto) raiz.setProperty(`--mk-${p}-alto`, m.alto + 'px');
+      if(p === 'banner'){
+        // Ancho de cada extremo en la imagen y en pantalla (proporcional al alto, para no deformarlo)
+        const sl = Math.max(1, Math.round(w * (m.sh ?? 24) / 100)), alto = m.alto ?? 100, ew = Math.round(alto * sl / h);
+        raiz.setProperty('--mk-banner-sl', String(sl));
+        raiz.setProperty('--mk-banner-ew', ew + 'px');
+        raiz.setProperty('--mk-banner-alto', alto + 'px');
+        raiz.setProperty('--mk-banner-f', (m.f ?? 14) + 'px');
+        raiz.setProperty('--mk-banner-fl', Math.round(ew * (m.fl ?? 40) / 100) + 'px');
+      }
       if(this.versiones[p] === m.v){ document.body.classList.add('skin-' + p); continue; }
       this.versiones[p] = m.v;
       // En modo local la imagen puede tardar unos milisegundos en llegar desde el panel
