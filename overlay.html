@@ -15,9 +15,9 @@ body.verde{background:#00FF00}
 
 /* La capa exterior maneja posición, tamaño y capa; .cuerpo maneja la entrada y salida */
 .el{position:absolute;left:0;top:0;transform-origin:50% 50%;visibility:visible;
-  transition:transform .14s linear, opacity .25s ease, visibility 0s}
+  transition:transform .09s linear, opacity .25s ease, visibility 0s}
 /* Al terminar de desvanecerse, el elemento sale del dibujado: oculto no cuesta nada */
-.el:not(.on){visibility:hidden;transition:transform .14s linear, opacity .25s ease, visibility 0s linear .5s}
+.el:not(.on){visibility:hidden;transition:transform .09s linear, opacity .25s ease, visibility 0s linear .5s}
 .cuerpo{width:100%;height:100%;opacity:0;transform:scale(.86);
   transition:opacity .3s ease, transform .45s cubic-bezier(.2,1.4,.4,1)}
 .el.on .cuerpo{opacity:1;transform:scale(1)}
@@ -245,6 +245,64 @@ body.guias .el{outline:3px dashed #FF007F}
 .horo-grid p{margin:0;font-size:calc(var(--k)*20px);line-height:1.4;color:rgba(255,255,255,.9)}
 .horo-suerte{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 26px;font-size:calc(var(--k)*19px);color:rgba(255,255,255,.85)}
 .horo-suerte b{color:#FFC2DC;margin-right:6px}
+
+
+/* ---------- Votaciones: diseño ---------- */
+.enc{gap:14px}
+.enc .vot-cab{width:100%;justify-content:center;min-height:108px;gap:16px;padding:0 20px;box-sizing:border-box}
+.enc .vot-estado{flex:0 1 auto;min-width:0;max-width:100%;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:38px;line-height:1.18;padding:14px 38px;letter-spacing:.01em;text-align:center;
+  background:linear-gradient(180deg,rgba(38,16,27,var(--enc-fondo,.92)),rgba(13,13,13,var(--enc-fondo,.92)));
+  border:3px solid #FF007F;box-shadow:inset 0 0 0 2px rgba(255,194,220,.35), 0 0 22px rgba(255,0,127,.4);text-shadow:0 2px 6px rgba(0,0,0,.8)}
+.enc .vot-estado.dos-lineas{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;border-radius:34px;padding:10px 34px}
+.enc.fase-ganador .vot-estado{background:linear-gradient(180deg,rgba(38,16,27,var(--enc-fondo,.92)),rgba(13,13,13,var(--enc-fondo,.92)));border-color:#FF007F}
+.vot-fase{display:none;flex:none;font-size:26px;font-weight:800;line-height:1;padding:12px 22px;border-radius:999px;
+  background:#FF007F;color:#FFFFFF;box-shadow:0 0 0 3px #FFC2DC, 0 0 20px rgba(255,0,127,.6);animation:pfAparece .4s cubic-bezier(.2,1.4,.4,1)}
+.enc.fase-empate .vot-fase,.enc.fase-desempate .vot-fase,.enc.fase-ganador .vot-fase{display:block}
+.enc .reloj{width:96px;height:96px}
+.enc .reloj span{font-size:42px}
+.enc-carta .marco{display:flex;align-items:center;border:4px solid #FFC2DC;border-radius:24px;
+  background:radial-gradient(120% 100% at 50% 0%, rgba(66,22,44,var(--enc-fondo,.92)) 0%, rgba(13,13,13,var(--enc-fondo,.92)) 68%);
+  box-shadow:inset 0 0 0 2px rgba(255,0,127,.35), 0 10px 26px rgba(0,0,0,.55)}
+.enc-carta .letra{background:radial-gradient(circle at 35% 30%,#FF4DA0 0%,#FF007F 55%,#C90064 100%);
+  box-shadow:0 0 0 4px #FFC2DC, 0 0 16px rgba(255,0,127,.6), 0 4px 12px rgba(0,0,0,.7);text-shadow:0 2px 4px rgba(0,0,0,.35)}
+.enc-texto{letter-spacing:.01em;text-shadow:0 2px 8px rgba(0,0,0,.75)}
+.enc .voto{margin-top:12px;gap:14px;font-size:var(--vfs,28px)}
+.enc .barra{height:.6em;border:2px solid rgba(255,194,220,.55)}
+.enc .pct{font-size:1em;min-width:4.6em;line-height:1.05}
+.enc .pct small{display:block;margin-top:.1em;font-size:1em;font-weight:800;color:#FFC2DC}
+.enc .carta.gana .pct{color:#FFFFFF}
+.enc .carta.gana .marco::before{animation:destello .9s ease-out .1s}
+
+/* Brillo de los marcos (ajuste de Apariencia) */
+body[data-brillo="1"] .enc-carta .marco, body[data-brillo="1"] .enc .vot-estado{filter:drop-shadow(0 0 8px rgba(255,0,127,.5))}
+body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{filter:drop-shadow(0 0 16px rgba(255,0,127,.8))}
+
+/* ---------- Piezas propias (pestaña Apariencia) ---------- */
+/* Se recortan en 9 partes: las esquinas quedan intactas y los lados se estiran */
+.skin-marco .enc-carta .marco{border-style:solid;border-color:transparent;border-width:var(--mk-marco-g);border-radius:var(--mk-marco-r);
+  border-image:var(--mk-marco) var(--mk-marco-s) / var(--mk-marco-g) / var(--mk-marco-o) stretch;
+  /* El fondo llega debajo del marco hasta "Margen del fondo" desde la orilla */
+  background:radial-gradient(120% 100% at 50% 0%, rgba(66,22,44,var(--enc-fondo,.92)) 0%, rgba(13,13,13,var(--enc-fondo,.92)) 68%) center / calc(100% - 2 * var(--mk-marco-f)) calc(100% - 2 * var(--mk-marco-f)) no-repeat;
+  background-origin:border-box;background-clip:border-box}
+.skin-marco .enc .carta .marco{box-shadow:none!important}
+.skin-marco .enc .carta.gana .marco{filter:drop-shadow(0 0 20px rgba(255,0,127,.9))}
+.skin-marco .enc .carta.luz .marco{filter:drop-shadow(0 0 22px rgba(255,255,255,.9))}
+.skin-marco .enc .carta.empata .marco{animation:latidoMarco 1.1s ease-in-out infinite}
+@keyframes latidoMarco{50%{filter:drop-shadow(0 0 18px rgba(255,0,127,.9))}}
+.skin-banner .enc .vot-estado{border-style:solid;border-color:transparent;border-width:var(--mk-banner-g);border-radius:var(--mk-banner-r);
+  border-image:var(--mk-banner) var(--mk-banner-s) / var(--mk-banner-g) / var(--mk-banner-o) stretch;
+  background:linear-gradient(rgba(13,13,13,var(--enc-fondo,.92)),rgba(13,13,13,var(--enc-fondo,.92))) center / calc(100% - 2 * var(--mk-banner-f)) calc(100% - 2 * var(--mk-banner-f)) no-repeat;
+  background-origin:border-box;background-clip:border-box;box-shadow:none;padding:4px 20px}
+.skin-insignia .enc .letra{background:var(--mk-insignia) center/contain no-repeat;box-shadow:none;
+  transform:scale(var(--mk-insignia-esc,1.3));transform-origin:30% 30%;text-shadow:0 2px 5px #000, 0 0 10px rgba(0,0,0,.8)}
+.skin-reloj .enc .reloj{width:calc(96px * var(--mk-reloj-esc,1.3));height:calc(96px * var(--mk-reloj-esc,1.3));background:var(--mk-reloj) center/contain no-repeat}
+.skin-reloj .enc .reloj svg{transform:rotate(-90deg) scale(.66)}
+.skin-reloj .enc .reloj .pista{fill:rgba(13,13,13,.85);stroke:transparent}
+.skin-barra .enc .barra{box-sizing:border-box;height:var(--mk-barra-alto,30px);border-style:solid;border-color:transparent;border-width:var(--mk-barra-g);
+  border-radius:var(--mk-barra-r);border-image:var(--mk-barra) var(--mk-barra-s) / var(--mk-barra-g) / var(--mk-barra-o) stretch;
+  background:linear-gradient(rgba(13,13,13,.85),rgba(13,13,13,.85)) center / calc(100% - 2 * var(--mk-barra-f)) calc(100% - 2 * var(--mk-barra-f)) no-repeat;
+  background-origin:border-box;background-clip:border-box}
 
 @media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
 </style>
@@ -573,8 +631,17 @@ function aplicarVoto(c, st, v, cfg){
     el.classList.toggle('apagada',
       (v.fase === 'ganador' && v.ganador !== i) || (v.fase === 'empate' && !emp.includes(i)) || (v.fase === 'desempate' && !desL.includes(i)));
   });
-  const texto = { listo:cfg.titulo, votando:cfg.votando, empate:'Empate', desempate:'Desempate', ganador:'Ganador' }[v.fase] || cfg.titulo;
-  raiz.querySelector('.vot-estado').textContent = texto;
+  const fases = { empate:'Empate', desempate:'Desempate', ganador:'Ganador' };
+  const estadoEl = raiz.querySelector('.vot-estado');
+  if(cfg.pregunta !== undefined){
+    const txt = cfg.pregunta || ({ listo:cfg.titulo, votando:cfg.votando }[v.fase] || cfg.titulo);
+    if(estadoEl.textContent !== txt) estadoEl.textContent = txt;
+    const tag = raiz.querySelector('.vot-fase');
+    if(tag) tag.textContent = v.fase === 'ganador' && v.ganador != null ? `Ganador: ${LETRAS[v.ganador] || ''}` : (fases[v.fase] || '');
+    ajustarPregunta(estadoEl, v.fase || 'listo');
+  } else {
+    estadoEl.textContent = { listo:cfg.titulo, votando:cfg.votando, ...fases }[v.fase] || cfg.titulo;
+  }
 
   // Temporizador: el círculo se anima solo con CSS y el número se actualiza 4 veces por segundo
   const reloj = raiz.querySelector('.reloj'), num = reloj.querySelector('span'), arco = reloj.querySelector('.avance');
@@ -793,10 +860,10 @@ function dibujarLista(c, e){
 /* ---------- Votaciones (encuesta con texto) ---------- */
 function crearEncuesta(c){
   c.innerHTML = `<div class="vot enc fase-listo">
-    <div class="enc-pregunta"></div>
     <div class="vot-cab">
       <div class="reloj"><svg viewBox="0 0 92 92" aria-hidden="true"><circle class="pista" cx="46" cy="46" r="40"/><circle class="avance" cx="46" cy="46" r="40"/></svg><span>0</span></div>
       <div class="vot-estado">Votación</div>
+      <div class="vot-fase"></div>
     </div>
     <div class="vot-cartas enc-cartas"></div>
   </div>`;
@@ -804,42 +871,70 @@ function crearEncuesta(c){
 }
 function actualizarEncuesta(c, e){
   const st = c._vot, d = e.datos || {}, ops = lista(d.opciones), raiz = c.firstChild;
-  const preg = raiz.querySelector('.enc-pregunta');
-  preg.textContent = d.pregunta || '';
-  preg.hidden = !d.pregunta;
-  const firma = JSON.stringify([ops, d.pregunta || '', e.w, e.h]);
-  if(firma !== st.firma){ st.firma = firma; armarEncuesta(c, e, ops, !!d.pregunta); }
+  const firma = JSON.stringify([ops, e.w, e.h, Apar.versiones, Apar.meta.piezas || null]);
+  if(firma !== st.firma){ st.firma = firma; armarEncuesta(c, e, ops); }
   raiz.classList.toggle('sin-votos', !!(e.opc && e.opc.verVotos === false));
   const letras = 'ABCDEFGH'.slice(0, ops.length).split('');
   aplicarVoto(c, st, e.vot || { fase:'listo' }, {
+    pregunta: String(d.pregunta || '').trim(),
     titulo: 'Votación',
     votando: 'Vota en el chat: ' + (letras.length > 1 ? letras.slice(0, -1).join(', ') + ' o ' + letras[letras.length - 1] : letras.join('')) + ((e.vot || {}).modo === 'cambiar' ? ' (puedes cambiar tu voto)' : '')
   });
 }
-function armarEncuesta(c, e, ops, conPregunta){
+function armarEncuesta(c, e, ops){
   const cont = c.querySelector('.enc-cartas'), n = ops.length;
   if(!n){ cont.innerHTML = ''; return; }
-  const PAD = 20, GAP = 22, GAPF = 18, CAB = 112 + (conPregunta ? 70 : 0), VOTO = 52;
+  const PAD = 20, GAP = 26, GAPF = 20, CAB = 128;
   const filas = n <= 4 ? 1 : 2, cols = Math.ceil(n / filas);
   const w = Math.floor((e.w - PAD * 2 - GAP * (cols - 1)) / cols);
+  // Porcentaje y cantidad de votos: mismo tamaño, en dos líneas a la derecha de la barra
+  const fsV = Math.round(Math.max(22, Math.min(36, w * .05))), VOTO = Math.round(fsV * 2.35 + 14);
+  cont.style.setProperty('--vfs', fsV + 'px');
   const hFila = (e.h - CAB - PAD - GAPF * (filas - 1)) / filas;
   const h = Math.max(70, Math.min(Math.round(hFila - VOTO), Math.round(w * .78)));
   const letra = Math.round(Math.min(80, Math.max(42, h * .38)));
   cont.style.gridTemplateColumns = `repeat(${cols}, ${w}px)`;
   cont.style.columnGap = GAP + 'px'; cont.style.rowGap = GAPF + 'px';
+  // Con marco propio, en cartas chicas el grosor se reduce para que no se coma el espacio del texto
+  let estiloMarco = '', borde = 4;
+  const pm = document.body.classList.contains('skin-marco') && (Apar.meta.piezas || {}).marco;
+  if(pm){
+    const gv = pm.g ?? 40, sv = (pm.h || 100) * (pm.s ?? 20) / 100, sh = (pm.w || 100) * (pm.sh ?? (pm.s ?? 20) * (pm.h || 100) / (pm.w || 100)) / 100;
+    const k = Math.min(1, h * .16 / gv), v = Math.round(gv * k), hz = Math.round(v * sh / sv);
+    borde = v;
+    if(k < 1) estiloMarco = `;border-width:${v}px ${hz}px;border-image-width:${v}px ${hz}px;--mk-marco-f:${Math.round((pm.f ?? 20) * k)}px`;
+  }
+  // Si la carta es baja, el texto va al lado de la letra en vez de debajo
+  const interior = h - borde * 2, alLado = interior < letra * 2.3;
+  const relleno = alLado ? `10px 16px 10px ${letra + 22}px` : `${Math.round(letra * .7)}px 22px 16px`;
   cont.innerHTML = ops.map((o, i) => `<div class="carta enc-carta" style="width:${w}px">
-      <div class="marco" style="height:${h}px">
-        <div class="letra" style="width:${letra}px;font-size:${Math.round(letra * .62)}px">${'ABCDEFGH'[i]}</div>
-        <div class="enc-texto" style="padding:${letra + 14}px 16px 14px">${esc(o)}</div>
+      <div class="marco" style="height:${h}px${estiloMarco}">
+        <div class="letra" style="width:${letra}px;font-size:${Math.round(letra * .62)}px${alLado ? `;top:50%;margin-top:${-letra / 2}px` : ''}">${'ABCDEFGH'[i]}</div>
+        <div class="enc-texto" style="padding:${relleno}">${esc(o)}</div>
       </div>
       <div class="voto"><div class="barra"><i></i></div><div class="pct">0%</div></div>
     </div>`).join('');
   // Cada texto toma la letra más grande que quepa en su carta
   cont.querySelectorAll('.enc-texto').forEach(t => {
-    let fs = Math.min(h * .34, 46);
+    let fs = Math.min(interior * .4, 46);
     t.style.fontSize = fs + 'px';
     while((t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1) && fs > 14){ fs -= 2; t.style.fontSize = fs + 'px'; }
   });
+}
+
+// La pregunta toma la letra más grande que quepa; si es muy larga pasa a dos líneas
+function ajustarPregunta(el, fase){
+  const clave = el.textContent + '|' + fase + '|' + el.parentNode.clientWidth;
+  if(el._clave === clave) return;
+  el._clave = clave;
+  el.classList.remove('dos-lineas');
+  let fs = 38;
+  el.style.fontSize = fs + 'px';
+  while(el.scrollWidth > el.clientWidth + 1 && fs > 24){ fs -= 2; el.style.fontSize = fs + 'px'; }
+  if(el.scrollWidth > el.clientWidth + 1){
+    el.classList.add('dos-lineas'); fs = 30; el.style.fontSize = fs + 'px';
+    while(el.scrollHeight > el.clientHeight + 1 && fs > 18){ fs -= 2; el.style.fontSize = fs + 'px'; }
+  }
 }
 
 /* ---------- Qué prefieres ---------- */
@@ -972,45 +1067,108 @@ function detener(n){
   if(c._ruleta) cancelAnimationFrame(c._ruleta.raf);
   if(c._tirada){ c._tirada.token++; c._tirada.timers.forEach(clearTimeout); }
 }
-function aplicar(){
-  const todo = elementos || {};
-  for(const id in nodos) if(!todo[id]){ detener(nodos[id]); nodos[id].remove(); delete nodos[id]; }
-  for(const id in todo){
-    const e = todo[id];
-    if(!e || !e.w || !e.h) continue;
-    let n = nodos[id];
-    if(!n){
-      n = document.createElement('div'); n.className = 'el';
-      const cuerpo = document.createElement('div'); cuerpo.className = 'cuerpo';
-      n.append(cuerpo); escena.append(n); nodos[id] = n;
-    }
-    n.style.width = e.w + 'px';
-    n.style.height = e.h + 'px';
-    n.style.transform = `translate(${e.x - e.w / 2}px,${e.y - e.h / 2}px) rotate(${e.rot || 0}deg) scale(${e.escala ?? 1})`;
-    n.style.opacity = e.opacidad ?? 1;
-    n.style.zIndex = e.capa || 1;
+// Campos que solo mueven el elemento: si solo cambia uno de estos, no se vuelve a dibujar el contenido
+const CAMPOS_POS = new Set(['x', 'y', 'escala', 'rot', 'opacidad', 'capa']);
+function firmaContenido(e){
+  const o = {};
+  for(const k in e) if(!CAMPOS_POS.has(k)) o[k] = e[k];
+  return JSON.stringify(o);
+}
+function aplicarUno(id, forzar){
+  const e = (elementos || {})[id];
+  let n = nodos[id];
+  if(!e || !e.w || !e.h){ if(n){ detener(n); n.remove(); delete nodos[id]; } return; }
+  if(!n){
+    n = document.createElement('div'); n.className = 'el';
+    const cuerpo = document.createElement('div'); cuerpo.className = 'cuerpo';
+    n.append(cuerpo); escena.append(n); nodos[id] = n;
+  }
+  // Posición: solo transform, opacidad y capa (lo mueve la GPU, sin redibujar nada)
+  const tr = `translate(${e.x - e.w / 2}px,${e.y - e.h / 2}px) rotate(${e.rot || 0}deg) scale(${e.escala ?? 1})`;
+  if(n._tr !== tr){ n._tr = tr; n.style.transform = tr; }
+  const op = String(e.opacidad ?? 1); if(n._op !== op){ n._op = op; n.style.opacity = op; }
+  const z = String(e.capa || 1); if(n._z !== z){ n._z = z; n.style.zIndex = z; }
+
+  const firma = firmaContenido(e);
+  if(!forzar && n._firma === firma) return;
+  n._firma = firma;
+  if(n._w !== e.w || n._h !== e.h){
+    n._w = e.w; n._h = e.h;
+    n.style.width = e.w + 'px'; n.style.height = e.h + 'px';
     n.style.setProperty('--u', Math.min(e.w, e.h * 1.6) / 1000);
+  }
+  const tipo = TIPOS[e.tipo] ? e.tipo : 'prueba', mod = TIPOS[tipo], cuerpo = n.firstChild;
+  const t = (e.datos && e.datos.t) || 0, nuevo = t !== ultimoT[id];
+  ultimoT[id] = t;
+  if(n._tipo !== tipo){ detener(n); cuerpo.innerHTML = ''; mod.crear(cuerpo, e); n._tipo = tipo; }
+  mod.actualizar(cuerpo, e, nuevo);
 
-    const tipo = TIPOS[e.tipo] ? e.tipo : 'prueba', mod = TIPOS[tipo], cuerpo = n.firstChild;
-    const t = (e.datos && e.datos.t) || 0, nuevo = t !== ultimoT[id];
-    ultimoT[id] = t;
-    if(n._tipo !== tipo){ detener(n); cuerpo.innerHTML = ''; mod.crear(cuerpo, e); n._tipo = tipo; }
-    mod.actualizar(cuerpo, e, nuevo);
-
-    if(e.visible){
-      clearTimeout(n._liberar); n._liberar = 0;
-      if(nuevo && t && n.classList.contains('on')){ n.classList.remove('on'); void n.offsetWidth; }
-      n.classList.add('on');
-    } else {
-      n.classList.remove('on');
-      if(!n._liberar && mod.liberar) n._liberar = setTimeout(() => { n._liberar = 0; mod.liberar(cuerpo); }, LIBERAR_MS);
-    }
+  if(e.visible){
+    clearTimeout(n._liberar); n._liberar = 0;
+    if(nuevo && t && n.classList.contains('on')){ n.classList.remove('on'); void n.offsetWidth; }
+    n.classList.add('on');
+  } else {
+    n.classList.remove('on');
+    if(!n._liberar && mod.liberar) n._liberar = setTimeout(() => { n._liberar = 0; mod.liberar(cuerpo); }, LIBERAR_MS);
   }
 }
+function aplicar(forzar){
+  const todo = elementos || {};
+  for(const id in nodos) if(!todo[id]) aplicarUno(id);
+  for(const id in todo) aplicarUno(id, forzar);
+}
+
+/* ---------- Apariencia: marcos y piezas propias ---------- */
+// Cada pieza es una imagen (ya sin verde) que se aplica con CSS. Si una pieza no está, se usa el diseño de siempre.
+// Las imágenes se piden solo cuando cambia su versión y se convierten en blob para no cargar textos enormes en el CSS.
+const PIEZAS = ['marco', 'insignia', 'banner', 'reloj', 'barra'];
+const Apar = {
+  meta:{}, urls:{}, versiones:{},
+  aplicar(v){
+    v = v || {};
+    this.meta = v;
+    const piezas = v.piezas || {}, aj = v.ajustes || {}, raiz = document.documentElement.style;
+    raiz.setProperty('--enc-fondo', String((aj.fondo ?? 92) / 100));
+    document.body.dataset.brillo = String(aj.brillo || 0);
+    for(const p of PIEZAS){
+      const m = piezas[p];
+      if(!m || !m.v){ document.body.classList.remove('skin-' + p); this.versiones[p] = ''; continue; }
+      // Corte: alto de las esquinas (% de la altura) y ancho (% del ancho); el grosor horizontal
+      // se calcula para que las esquinas no se deformen
+      const w = m.w || 100, h = m.h || 100, sv = Math.max(1, Math.round(h * (m.s ?? 20) / 100));
+      const sh = Math.max(1, Math.round(w * (m.sh ?? (m.s ?? 20) * h / w) / 100)), g = m.g ?? 40;
+      raiz.setProperty(`--mk-${p}-s`, `${sv} ${sh}`);
+      raiz.setProperty(`--mk-${p}-g`, `${g}px ${Math.round(g * sh / sv)}px`);
+      raiz.setProperty(`--mk-${p}-o`, (m.o ?? 0) + 'px');
+      raiz.setProperty(`--mk-${p}-r`, (m.r ?? 24) + 'px');
+      raiz.setProperty(`--mk-${p}-f`, (m.f ?? 20) + 'px');
+      raiz.setProperty(`--mk-${p}-esc`, String((m.e ?? 130) / 100));
+      if(m.alto) raiz.setProperty(`--mk-${p}-alto`, m.alto + 'px');
+      if(this.versiones[p] === m.v){ document.body.classList.add('skin-' + p); continue; }
+      this.versiones[p] = m.v;
+      // En modo local la imagen puede tardar unos milisegundos en llegar desde el panel
+      const leerLocal = (n = 0) => new Promise(ok => {
+        const v = localStorage.getItem(`bsx-apar-img-${sala}-${p}`);
+        if(v || n > 20) ok(v); else setTimeout(() => leerLocal(n + 1).then(ok), 100);
+      });
+      const pedir = db ? db.ref(`overlay/${sala}/apariencia/img/${p}`).once('value').then(s => s.val()) : leerLocal();
+      pedir.then(src => { if(!src) throw new Error('sin imagen'); return fetch(src).then(r => r.blob()); }).then(blob => {
+        if(this.versiones[p] !== m.v) return;
+        if(this.urls[p]) URL.revokeObjectURL(this.urls[p]);
+        this.urls[p] = URL.createObjectURL(blob);
+        raiz.setProperty(`--mk-${p}`, `url("${this.urls[p]}")`);
+        document.body.classList.add('skin-' + p);
+        // El tamaño de las cartas depende del grosor del marco
+        aplicar(true);
+      }).catch(() => document.body.classList.remove('skin-' + p));
+    }
+    aplicar(true);
+  }
+};
 
 // Redibuja las ruletas cuando termina de cargar la tipografía
 if(document.fonts && document.fonts.load){
-  document.fonts.load('800 40px "M PLUS Rounded 1c"').then(() => { fuentesListas = 1; aplicar(); }).catch(() => {});
+  document.fonts.load('800 40px "M PLUS Rounded 1c"').then(() => { fuentesListas = 1; aplicar(true); }).catch(() => {});
 }
 
 aplicar();
@@ -1019,16 +1177,26 @@ if(FIREBASE_CONFIG.databaseURL && window.firebase){
   firebase.initializeApp(FIREBASE_CONFIG);
   db = firebase.database();
   db.ref('.info/serverTimeOffset').on('value', s => { desfase = s.val() || 0; });
-  // Solo se escucha la posición y el estado; las imágenes se piden una por una cuando se van a mostrar
-  db.ref(`overlay/${sala}/elementos`).on('value', s => { elementos = s.val() || {}; aplicar(); }, err => console.error(err));
+  // Se escucha elemento por elemento: al mover uno, solo ese se procesa
+  const ref = db.ref(`overlay/${sala}/elementos`);
+  const poner = s => { elementos[s.key] = s.val(); aplicarUno(s.key); };
+  ref.on('child_added', poner, err => console.error(err));
+  ref.on('child_changed', poner);
+  ref.on('child_removed', s => { delete elementos[s.key]; aplicarUno(s.key); });
+  db.ref(`overlay/${sala}/apariencia/piezas`).on('value', s => { Apar.meta.piezas = s.val(); Apar.aplicar(Apar.meta); });
+  db.ref(`overlay/${sala}/apariencia/ajustes`).on('value', s => { Apar.meta.ajustes = s.val(); Apar.aplicar(Apar.meta); });
 } else {
   // Modo local para pruebas en el mismo navegador que el panel
   try{
     elementos = JSON.parse(localStorage.getItem('bsx-estado-' + sala) || 'null') || elementos;
+    Apar.aplicar(JSON.parse(localStorage.getItem('bsx-apar-' + sala) || 'null'));
   }catch{}
   aplicar();
   const canal = new BroadcastChannel('bsx-' + sala);
-  canal.onmessage = m => { elementos = m.data.elementos || {}; aplicar(); };
+  canal.onmessage = m => {
+    if(m.data.apariencia) return Apar.aplicar(m.data.apariencia);
+    elementos = m.data.elementos || {}; aplicar();
+  };
 }
 </script>
 </body>
