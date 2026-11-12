@@ -291,23 +291,106 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .skin-marco .enc .carta.empata .marco{animation:latidoMarco 1.1s ease-in-out infinite}
 @keyframes latidoMarco{50%{filter:drop-shadow(0 0 18px rgba(255,0,127,.9))}}
 /* Banner en 3 partes: los extremos quedan intactos (sin deformarse) y el centro se estira solo a lo ancho */
-.skin-banner .enc .vot-estado,.skin-banner .enc .vot-estado.dos-lineas{box-sizing:border-box;height:var(--mk-banner-alto,100px);
+.skin-banner .vot .vot-estado,.skin-banner .enc .vot-estado.dos-lineas{box-sizing:border-box;height:var(--mk-banner-alto,100px);
   display:flex;align-items:center;justify-content:center;text-align:center;border-radius:0;padding:0 10px;box-shadow:none;
   border-style:solid;border-color:transparent;border-width:0 var(--mk-banner-ew);
   border-image:var(--mk-banner) 0 var(--mk-banner-sl) fill / 0 var(--mk-banner-ew) / 0 stretch;
   background:linear-gradient(rgba(13,13,13,var(--enc-fondo,.92)),rgba(13,13,13,var(--enc-fondo,.92))) center / calc(100% - 2 * var(--mk-banner-fl)) calc(100% - 2 * var(--mk-banner-f)) no-repeat;
   background-origin:border-box;background-clip:border-box}
 .skin-banner .enc .vot-estado.dos-lineas{white-space:normal;line-height:1.12}
-.skin-insignia .enc .letra{background:var(--mk-insignia) center/contain no-repeat;box-shadow:none;
+.skin-insignia .vot .letra{background:var(--mk-insignia) center/contain no-repeat;box-shadow:none;
   transform:scale(var(--mk-insignia-esc,1.3));transform-origin:30% 30%;text-shadow:0 2px 5px #000, 0 0 10px rgba(0,0,0,.8)}
-.skin-reloj .enc .reloj{width:calc(96px * var(--mk-reloj-esc,1.3));height:calc(96px * var(--mk-reloj-esc,1.3));background:var(--mk-reloj) center/contain no-repeat}
-.skin-reloj .enc .reloj svg{transform:rotate(-90deg) scale(.66)}
-.skin-reloj .enc .reloj .pista{fill:rgba(13,13,13,.85);stroke:transparent}
-.skin-barra .enc .barra{box-sizing:border-box;height:var(--mk-barra-alto,30px);border-style:solid;border-color:transparent;border-width:var(--mk-barra-g);
+.skin-reloj .vot .reloj{width:calc(96px * var(--mk-reloj-esc,1.3));height:calc(96px * var(--mk-reloj-esc,1.3));background:var(--mk-reloj) center/contain no-repeat}
+.skin-reloj .vot .reloj svg{transform:rotate(-90deg) scale(.66)}
+.skin-reloj .vot .reloj .pista{fill:rgba(13,13,13,.85);stroke:transparent}
+.skin-barra .vot .barra{box-sizing:border-box;height:var(--mk-barra-alto,30px);border-style:solid;border-color:transparent;border-width:var(--mk-barra-g);
   border-radius:var(--mk-barra-r);border-image:var(--mk-barra) var(--mk-barra-s) / var(--mk-barra-g) / var(--mk-barra-o) stretch;
   background:linear-gradient(rgba(13,13,13,.85),rgba(13,13,13,.85)) center / calc(100% - 2 * var(--mk-barra-f)) calc(100% - 2 * var(--mk-barra-f)) no-repeat;
   background-origin:border-box;background-clip:border-box}
 
+/* ---------- Piezas 1 a 12 (pestaña Apariencia) ---------- */
+/* 1 y 2. Cartas de los randoms y de la votación de killer: grosor proporcional al ancho de cada carta */
+.skin-carta .carta:not(.enc-carta):not(.es-perk) .marco,
+.skin-perk .carta.es-perk .marco{box-shadow:none;border-radius:calc(var(--cw) * .05);border-style:solid;border-color:transparent}
+.skin-carta .carta:not(.enc-carta):not(.es-perk) .marco{
+  border-width:calc(var(--cw) * var(--mk-carta-gv)) calc(var(--cw) * var(--mk-carta-gh));
+  border-image:var(--mk-carta) var(--mk-carta-s) / calc(var(--cw) * var(--mk-carta-gv)) calc(var(--cw) * var(--mk-carta-gh)) / var(--mk-carta-o) stretch;
+  background:radial-gradient(120% 90% at 50% 0%, #2a1520 0%, #0D0D0D 70%) center / calc(100% - 2 * var(--cw) * var(--mk-carta-fp)) calc(100% - 2 * var(--cw) * var(--mk-carta-fp)) no-repeat;
+  background-origin:border-box;background-clip:border-box}
+.skin-perk .carta.es-perk .marco{
+  border-width:calc(var(--cw) * var(--mk-perk-gv)) calc(var(--cw) * var(--mk-perk-gh));
+  border-image:var(--mk-perk) var(--mk-perk-s) / calc(var(--cw) * var(--mk-perk-gv)) calc(var(--cw) * var(--mk-perk-gh)) / var(--mk-perk-o) stretch;
+  background:radial-gradient(120% 90% at 50% 0%, #2a1520 0%, #0D0D0D 70%) center / calc(100% - 2 * var(--cw) * var(--mk-perk-fp)) calc(100% - 2 * var(--cw) * var(--mk-perk-fp)) no-repeat;
+  background-origin:border-box;background-clip:border-box}
+/* Estados (ganador, empate, listo) con brillo en lugar de borde */
+.skin-carta .carta:not(.enc-carta):not(.es-perk).lista .marco,.skin-perk .carta.es-perk.lista .marco{box-shadow:none;filter:drop-shadow(0 0 14px rgba(255,0,127,.8))}
+.skin-carta .vot .carta:not(.es-perk).gana .marco{box-shadow:none;filter:drop-shadow(0 0 22px rgba(255,0,127,.95))}
+.skin-carta .vot .carta:not(.es-perk).luz .marco{box-shadow:none;filter:drop-shadow(0 0 22px rgba(255,255,255,.9))}
+.skin-carta .vot .carta:not(.es-perk).empata .marco{box-shadow:none;animation:latidoMarco 1.1s ease-in-out infinite}
+
+/* 3, 4 y 5. Ruleta: aro, puntero y centro (no se estiran) */
+.aro,.puntero-img{display:none;position:absolute;pointer-events:none;background-position:center;background-size:contain;background-repeat:no-repeat}
+.skin-aro .aro{display:block;left:50%;top:50%;width:calc(var(--mk-aro-esc) * 100%);height:calc(var(--mk-aro-esc) * 100%);transform:translate(-50%,-50%);
+  background-image:var(--mk-aro);z-index:1}
+.skin-aro .rueda{filter:none}
+.skin-puntero .puntero{display:none}
+.skin-puntero .puntero-img{display:block;left:50%;top:-4%;width:calc(var(--mk-puntero-esc) * 10%);aspect-ratio:1;transform:translateX(-50%);
+  background-image:var(--mk-puntero);z-index:2;filter:drop-shadow(0 3px 4px rgba(0,0,0,.55))}
+.skin-centro .eje{width:calc(var(--mk-centro-esc) * 12%);height:calc(var(--mk-centro-esc) * 12%);border:0;box-shadow:none;border-radius:0;
+  background:var(--mk-centro) center/contain no-repeat;z-index:2}
+
+/* 6. Tarjeta del ganador de la ruleta (escala con el tamaño de la ruleta) */
+.skin-ganador .ganador{border-style:solid;border-color:transparent;border-radius:calc(var(--u) * var(--mk-ganador-r));box-shadow:none;
+  border-width:calc(var(--u) * var(--mk-ganador-gv)) calc(var(--u) * var(--mk-ganador-gh));
+  border-image:var(--mk-ganador) var(--mk-ganador-s) / calc(var(--u) * var(--mk-ganador-gv)) calc(var(--u) * var(--mk-ganador-gh)) / var(--mk-ganador-o) stretch;
+  background:linear-gradient(rgba(13,13,13,.95),rgba(13,13,13,.95)) center / calc(100% - 2 * var(--u) * var(--mk-ganador-fpx)) calc(100% - 2 * var(--u) * var(--mk-ganador-fpx)) no-repeat;
+  background-origin:border-box;background-clip:border-box;filter:drop-shadow(0 0 30px rgba(255,0,127,.55))}
+
+/* 7. Chat */
+.skin-chat .chatov{box-sizing:border-box;border-style:solid;border-color:transparent;border-width:var(--mk-chat-gv) var(--mk-chat-gh);border-radius:var(--mk-chat-r);
+  border-image:var(--mk-chat) var(--mk-chat-s) / var(--mk-chat-gv) var(--mk-chat-gh) / var(--mk-chat-o) stretch;box-shadow:none;
+  background:linear-gradient(rgba(13,13,13,.8),rgba(13,13,13,.8)) center / calc(100% - 2 * var(--mk-chat-fpx)) calc(100% - 2 * var(--mk-chat-fpx)) no-repeat;
+  background-origin:border-box;background-clip:border-box;}
+
+/* 8, 9 y 10. Lista de jugadores */
+.skin-lista .fila-jug{box-sizing:border-box;border-style:solid;border-color:transparent;border-width:var(--mk-lista-gv) var(--mk-lista-gh);border-radius:var(--mk-lista-r);
+  border-image:var(--mk-lista) var(--mk-lista-s) / var(--mk-lista-gv) var(--mk-lista-gh) / var(--mk-lista-o) stretch;box-shadow:none;
+  background:linear-gradient(rgba(13,13,13,.88),rgba(13,13,13,.88)) center / calc(100% - 2 * var(--mk-lista-fpx)) calc(100% - 2 * var(--mk-lista-fpx)) no-repeat;
+  background-origin:border-box;background-clip:border-box;}
+.skin-titulo .fila-tit{box-sizing:border-box;height:var(--mk-titulo-alto);display:flex;align-items:center;border-radius:0;box-shadow:none;
+  border-style:solid;border-color:transparent;border-width:0 var(--mk-titulo-ew);padding-top:0;padding-bottom:0;
+  border-image:var(--mk-titulo) 0 var(--mk-titulo-sl) fill / 0 var(--mk-titulo-ew) / 0 stretch;
+  background:linear-gradient(rgba(13,13,13,.9),rgba(13,13,13,.9)) center / calc(100% - 2 * var(--mk-titulo-fl)) calc(100% - 2 * var(--mk-titulo-fv)) no-repeat;
+  background-origin:border-box;background-clip:border-box;justify-content:center;padding:0 .2em;overflow:hidden;white-space:nowrap}
+.skin-fila .fila-nombres li.primero{box-sizing:border-box;height:var(--mk-fila-alto);display:flex;align-items:center;border-radius:0;box-shadow:none;
+  border-style:solid;border-color:transparent;border-width:0 var(--mk-fila-ew);padding-top:0;padding-bottom:0;
+  border-image:var(--mk-fila) 0 var(--mk-fila-sl) fill / 0 var(--mk-fila-ew) / 0 stretch;
+  background:linear-gradient(rgba(255,0,127,.32),rgba(255,0,127,.32)) center / calc(100% - 2 * var(--mk-fila-fl)) calc(100% - 2 * var(--mk-fila-fv)) no-repeat;
+  background-origin:border-box;background-clip:border-box;padding-left:.1em;padding-right:.2em}
+
+/* 11. Horóscopo (el título del signo usa la placa 9 y la palabra clave la etiqueta 12) */
+.skin-horo .horo{box-sizing:border-box;border-style:solid;border-color:transparent;border-width:var(--mk-horo-gv) var(--mk-horo-gh);border-radius:var(--mk-horo-r);
+  border-image:var(--mk-horo) var(--mk-horo-s) / var(--mk-horo-gv) var(--mk-horo-gh) / var(--mk-horo-o) stretch;box-shadow:none;
+  background:linear-gradient(rgba(13,13,13,.9),rgba(13,13,13,.9)) center / calc(100% - 2 * var(--mk-horo-fpx)) calc(100% - 2 * var(--mk-horo-fpx)) no-repeat;
+  background-origin:border-box;background-clip:border-box;}
+.skin-horo .horo-cab{align-items:center}
+.skin-titulo .horo-signo{box-sizing:border-box;height:var(--mk-titulo-alto);display:flex;align-items:center;border-radius:0;box-shadow:none;
+  border-style:solid;border-color:transparent;border-width:0 var(--mk-titulo-ew);padding-top:0;padding-bottom:0;
+  border-image:var(--mk-titulo) 0 var(--mk-titulo-sl) fill / 0 var(--mk-titulo-ew) / 0 stretch;
+  background:linear-gradient(rgba(13,13,13,.9),rgba(13,13,13,.9)) center / calc(100% - 2 * var(--mk-titulo-fl)) calc(100% - 2 * var(--mk-titulo-fv)) no-repeat;
+  background-origin:border-box;background-clip:border-box;padding:0 .25em;white-space:nowrap}
+.skin-titulo .horo-signo{font-size:calc(var(--k) * 48px)}
+
+/* 12. Etiquetas pequeñas */
+.skin-etiqueta .vot-fase,.skin-etiqueta .horo-clave{box-sizing:border-box;height:var(--mk-etiqueta-alto);display:flex;align-items:center;border-radius:0;box-shadow:none;
+  border-style:solid;border-color:transparent;border-width:0 var(--mk-etiqueta-ew);padding-top:0;padding-bottom:0;
+  border-image:var(--mk-etiqueta) 0 var(--mk-etiqueta-sl) fill / 0 var(--mk-etiqueta-ew) / 0 stretch;
+  background:linear-gradient(rgba(255,0,127,.85),rgba(255,0,127,.85)) center / calc(100% - 2 * var(--mk-etiqueta-fl)) calc(100% - 2 * var(--mk-etiqueta-fv)) no-repeat;
+  background-origin:border-box;background-clip:border-box;padding:0 .35em;justify-content:center}
+
+/* La etiqueta de la votación solo aparece en empate, desempate y ganador */
+.skin-etiqueta .vot-fase{display:none}
+.skin-etiqueta .enc.fase-empate .vot-fase,.skin-etiqueta .enc.fase-desempate .vot-fase,.skin-etiqueta .enc.fase-ganador .vot-fase{display:flex}
 @media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
 </style>
 </head>
@@ -405,6 +488,8 @@ function crearRuleta(c){
   c.innerHTML = `<div class="ruleta">
     <canvas class="rueda"></canvas>
     <svg class="puntero" viewBox="0 0 60 70" aria-hidden="true"><path d="M30 64 L7 12 Q30 2 53 12 Z" fill="#FF007F" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round"/></svg>
+    <div class="aro"></div>
+    <div class="puntero-img"></div>
     <div class="eje"></div>
     <div class="ganador"><span>Ganador</span><strong></strong></div>
   </div>`;
@@ -539,7 +624,7 @@ async function armarTirada(cont, e, d, tok, st, modo){
     const w = W * escalas[i], h = w * PROP;
     const letra = vot ? `<div class="letra" style="font-size:${Math.round(w * .13)}px">${'ABCD'[i] || ''}</div>` : '';
     const voto = vot ? '<div class="voto"><div class="barra"><i></i></div><div class="pct">0%</div></div>' : '';
-    return `<div class="carta${k.p ? ' es-perk' : ''}${k.e ? ' en-espera' : ''}" style="width:${w}px;margin-left:${margenes[i]}px"><div class="marco" style="height:${h}px"><div class="ventana"><div class="tira">${cuadrosHTML(framesDe(k), h)}</div></div>${letra}</div>${nombreHTML(k, fsP, fsK)}${voto}</div>`;
+    return `<div class="carta${k.p ? ' es-perk' : ''}${k.e ? ' en-espera' : ''}" style="width:${w}px;--cw:${w}px;margin-left:${margenes[i]}px"><div class="marco" style="height:${h}px"><div class="ventana"><div class="tira">${cuadrosHTML(framesDe(k), h)}</div></div>${letra}</div>${nombreHTML(k, fsP, fsK)}${voto}</div>`;
   }).join('');
   const els = [...cont.querySelectorAll('.carta')];
   // Precarga solo las imágenes de esta tirada
@@ -839,16 +924,25 @@ function liberarChat(c){
 /* ---------- Lista para jugar ---------- */
 function dibujarLista(c, e){
   const d = e.datos || {}, nombres = lista(d.nombres), titulo = d.titulo ?? 'Siguen en jugar';
-  const firma = JSON.stringify([titulo, nombres, e.w, e.h]);
+  const firma = JSON.stringify([titulo, nombres, e.w, e.h, Apar.gen]);
   if(c._firma === firma) return;
   c._firma = firma;
   const fs = Math.round(e.w * .056);
   c.innerHTML = `<div class="fila-jug" style="font-size:${fs}px">
-    ${titulo ? `<div class="fila-tit">${esc(titulo)}</div>` : ''}
+    ${titulo ? `<div class="fila-tit"><span>${esc(titulo)}</span></div>` : ''}
     <ol class="fila-nombres">${nombres.length
       ? nombres.map((n, i) => `<li class="${i === 0 ? 'primero' : ''}"><span class="num">${i + 1}</span><span class="nom">${esc(n)}</span></li>`).join('')
       : '<li class="vacia">La lista está vacía</li>'}</ol>
   </div>`;
+  // Si el título no cabe (por ejemplo entre los adornos de la placa), se reduce su letra
+  const tit = c.querySelector('.fila-tit');
+  if(tit){
+    const sp = tit.firstChild;
+    sp.style.display = 'inline-block'; sp.style.maxWidth = 'none';
+    const cs = getComputedStyle(tit), disp = tit.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
+    for(let k = 1; sp.scrollWidth > disp && k > .5; ){ k -= .05; sp.style.fontSize = k.toFixed(2) + 'em'; }
+    sp.style.maxWidth = '100%'; sp.style.overflow = 'hidden'; sp.style.textOverflow = 'ellipsis';
+  }
   // Si no caben todos, se muestran los primeros y un aviso de cuántos faltan
   const ol = c.querySelector('.fila-nombres'), items = [...ol.children];
   if(ol.scrollHeight > ol.clientHeight + 1 && nombres.length){
@@ -1125,7 +1219,10 @@ function aplicar(forzar){
 /* ---------- Apariencia: marcos y piezas propias ---------- */
 // Cada pieza es una imagen (ya sin verde) que se aplica con CSS. Si una pieza no está, se usa el diseño de siempre.
 // Las imágenes se piden solo cuando cambia su versión y se convierten en blob para no cargar textos enormes en el CSS.
-const PIEZAS = ['marco', 'insignia', 'banner', 'reloj', 'barra'];
+const PIEZAS = ['marco', 'insignia', 'banner', 'reloj', 'barra',
+  'carta', 'perk', 'aro', 'puntero', 'centro', 'ganador', 'chat', 'lista', 'titulo', 'fila', 'horo', 'etiqueta'];
+// rel: grosor en % del ancho de cada carta. tira: alto en % del tamaño de letra (recorte en 3 partes)
+const TIPO_PIEZA = { carta:'rel', perk:'rel', titulo:'tira', fila:'tira', etiqueta:'tira' };
 const Apar = {
   meta:{}, urls:{}, versiones:{},
   gen:0,
@@ -1149,6 +1246,23 @@ const Apar = {
       raiz.setProperty(`--mk-${p}-f`, (m.f ?? 20) + 'px');
       raiz.setProperty(`--mk-${p}-esc`, String((m.e ?? 130) / 100));
       if(m.alto) raiz.setProperty(`--mk-${p}-alto`, m.alto + 'px');
+      const tp = TIPO_PIEZA[p];
+      if(tp === 'rel'){
+        raiz.setProperty(`--mk-${p}-gv`, String(g / 100));
+        raiz.setProperty(`--mk-${p}-gh`, String(g / 100 * sh / sv));
+        raiz.setProperty(`--mk-${p}-fp`, String((m.f ?? 5) / 100));
+      } else if(tp === 'tira'){
+        const sl = Math.max(1, Math.round(w * (m.sh ?? 24) / 100)), alto = (m.alto ?? 220) / 100, ew = alto * sl / h;
+        raiz.setProperty(`--mk-${p}-sl`, String(sl));
+        raiz.setProperty(`--mk-${p}-alto`, alto + 'em');
+        raiz.setProperty(`--mk-${p}-ew`, ew.toFixed(3) + 'em');
+        raiz.setProperty(`--mk-${p}-fv`, (alto * (m.f ?? 30) / 100).toFixed(3) + 'em');
+        raiz.setProperty(`--mk-${p}-fl`, (ew * (m.fl ?? 45) / 100).toFixed(3) + 'em');
+      } else {
+        raiz.setProperty(`--mk-${p}-gv`, g + 'px');
+        raiz.setProperty(`--mk-${p}-gh`, Math.round(g * sh / sv) + 'px');
+        raiz.setProperty(`--mk-${p}-fpx`, (m.f ?? 20) + 'px');
+      }
       if(p === 'banner'){
         // Ancho de cada extremo en la imagen y en pantalla (proporcional al alto, para no deformarlo)
         const sl = Math.max(1, Math.round(w * (m.sh ?? 24) / 100)), alto = m.alto ?? 100, ew = Math.round(alto * sl / h);
@@ -1172,7 +1286,8 @@ const Apar = {
         this.urls[p] = URL.createObjectURL(blob);
         raiz.setProperty(`--mk-${p}`, `url("${this.urls[p]}")`);
         document.body.classList.add('skin-' + p);
-        // El tamaño de las cartas depende del grosor del marco
+        // El tamaño de las cartas y de los títulos depende de la pieza: se vuelve a acomodar todo
+        this.gen++;
         aplicar(true);
       }).catch(() => document.body.classList.remove('skin-' + p));
     }
