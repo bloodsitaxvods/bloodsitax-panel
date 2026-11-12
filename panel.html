@@ -251,6 +251,8 @@ a{color:var(--rosa)}
 .apar-medida{display:inline-block;background:var(--negro);border:1px solid var(--linea);border-radius:8px;padding:1px 8px;color:var(--rosa);font-weight:700}
 .apar .filas{margin-top:10px}
 .apar .fila{grid-template-columns:120px 1fr 86px}
+.apar-grupo{margin:26px 0 10px;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--rosa)}
+.apar-redondo:empty{border-radius:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -1804,8 +1806,46 @@ const PIEZAS_INFO = {
   reloj:    { nombre:'Anillo del temporizador', medida:'1024 x 1024', usa:'el círculo de los segundos', tipo:'redondo', texto:'18',
               ctr:['e'], def:{ e:130 } },
   barra:    { nombre:'Marco de la barra', medida:'1536 x 512', usa:'las barras de porcentaje', tipo:'borde', demo:[260,40],
-              ctr:['s','sh','g','f','alto','r'], def:{ s:45, g:10, f:4, alto:30, r:999 } }
+              ctr:['s','sh','g','f','alto','r'], def:{ s:45, g:10, f:4, alto:30, r:999 } },
+  carta:    { num:1, grupo:'Cartas de los randoms y votación de killer', nombre:'Marco de carta vertical', medida:'1024 x 1536',
+              usa:'las cartas de killer, survi y Marvel, y en la votación de killer', demo:[150,225], tipo:'rel', ctr:['s','sh','g','f','o'],
+              etq:{ g:'Grosor (del ancho de la carta)', f:'Margen del fondo' }, rangos:{ g:[2, 40], f:[0, 30] }, unid:{ g:'%', f:'%' },
+              def:{ s:12, g:12, f:4, o:0 } },
+  perk:     { num:2, nombre:'Marco de perk', medida:'1024 x 1024', usa:'las perks de los randoms y en Perks del ganador', demo:[150,150], tipo:'rel', ctr:['s','sh','g','f','o'],
+              etq:{ g:'Grosor (del ancho de la carta)', f:'Margen del fondo' }, rangos:{ g:[2, 40], f:[0, 30] }, unid:{ g:'%', f:'%' },
+              def:{ s:16, g:14, f:5, o:0 } },
+  aro:      { num:3, grupo:'Ruletas', nombre:'Aro de la ruleta', medida:'1024 x 1024', usa:'el borde de las 3 ruletas', tipo:'redondo', texto:'',
+              ctr:['e'], def:{ e:106 }, rangos:{ e:[80, 140] }, etq:{ e:'Tamaño (respecto a la rueda)' } },
+  puntero:  { num:4, nombre:'Puntero de la ruleta', medida:'512 x 512', usa:'la flecha de arriba de las ruletas', tipo:'redondo', texto:'',
+              ctr:['e'], def:{ e:130 }, rangos:{ e:[40, 300] } },
+  centro:   { num:5, nombre:'Centro de la ruleta', medida:'512 x 512', usa:'el círculo del centro de las ruletas', tipo:'redondo', texto:'',
+              ctr:['e'], def:{ e:140 }, rangos:{ e:[40, 300] } },
+  ganador:  { num:6, nombre:'Tarjeta del ganador', medida:'1536 x 768', usa:'el cuadro que aparece sobre la ruleta con el ganador', tipo:'borde', demo:[260,130],
+              ctr:['s','sh','g','f','o','r'], def:{ s:24, g:60, f:24, o:0, r:30 } },
+  chat:     { num:7, grupo:'Chats', nombre:'Marco del chat', medida:'1024 x 1280', usa:'los 3 chats del overlay', tipo:'borde', demo:[150,190],
+              ctr:['s','sh','g','f','o','r'], def:{ s:14, g:40, f:18, o:0, r:24 } },
+  lista:    { num:8, grupo:'Lista de jugadores', nombre:'Marco de la lista', medida:'1024 x 1536', usa:'el cuadro de la lista para jugar', tipo:'borde', demo:[150,225],
+              ctr:['s','sh','g','f','o','r'], def:{ s:13, g:40, f:18, o:0, r:24 } },
+  titulo:   { num:9, nombre:'Placa de título', medida:'1536 x 384', usa:'el título de la lista y el nombre del signo en el horóscopo', tipo:'tira', em:true, demo:[300,80],
+              etq:{ sh:'Ancho de los adornos', alto:'Alto (respecto a la letra)', f:'Margen arriba y abajo', fl:'Fondo hacia los lados' },
+              rangos:{ sh:[3, 45], alto:[120, 420], f:[0, 50], fl:[0, 100] }, unid:{ alto:'%', f:'%', fl:'%' },
+              ctr:['sh','alto','f','fl'],
+              def:{ sh:24, alto:240, f:30, fl:45 } },
+  fila:     { num:10, nombre:'Fila del jugador', medida:'1536 x 256', usa:'la fila del jugador al que le toca', tipo:'tira', em:true, demo:[300,80],
+              etq:{ sh:'Ancho de los adornos', alto:'Alto (respecto a la letra)', f:'Margen arriba y abajo', fl:'Fondo hacia los lados' },
+              rangos:{ sh:[3, 45], alto:[120, 420], f:[0, 50], fl:[0, 100] }, unid:{ alto:'%', f:'%', fl:'%' },
+              ctr:['sh','alto','f','fl'],
+              def:{ sh:12, alto:190, f:28, fl:50 } },
+  horo:     { num:11, grupo:'Horóscopo', nombre:'Marco del horóscopo', medida:'1536 x 1024', usa:'la tarjeta del horóscopo', tipo:'borde', demo:[240,160],
+              ctr:['s','sh','g','f','o','r'], def:{ s:20, g:50, f:22, o:0, r:24 } },
+  etiqueta: { num:12, grupo:'Etiquetas', nombre:'Etiqueta', medida:'1024 x 256', usa:'"Ganador: A", "Empate" y la palabra clave del horóscopo', tipo:'tira', em:true, demo:[300,80],
+              etq:{ sh:'Ancho de los adornos', alto:'Alto (respecto a la letra)', f:'Margen arriba y abajo', fl:'Fondo hacia los lados' },
+              rangos:{ sh:[3, 45], alto:[120, 420], f:[0, 50], fl:[0, 100] }, unid:{ alto:'%', f:'%', fl:'%' },
+              ctr:['sh','alto','f','fl'],
+              def:{ sh:10, alto:200, f:28, fl:50 } }
 };
+// Las piezas de Votaciones van primero, en su propio grupo
+PIEZAS_INFO.marco.grupo = 'Votaciones';
 const CONTROLES_APAR = {
   s:   ['Esquinas (alto)', 5, 50, '%'],
   sh:  ['Esquinas (ancho)', 2, 50, '%'],
@@ -1925,9 +1965,9 @@ const Apar = {
       // Si es la primera vez, el ancho de las esquinas se calcula para que queden cuadradas
       if(info.tipo === 'tira'){
         meta.sh = r.ext;
-        if(r.riel != null) meta.f = Math.round(clamp((meta.alto ?? 100) * r.riel, 0, 80));
+        if(r.riel != null) meta.f = info.em ? Math.round(clamp(r.riel * 100, 0, 50)) : Math.round(clamp((meta.alto ?? 100) * r.riel, 0, 80));
       }
-      else if(info.ctr.includes('sh') && !(actual && actual.sh != null)) meta.sh = Math.round(clamp(meta.s * r.h / r.w * (p === 'marco' ? 1 : 1.6), 2, 50));
+      else if(info.ctr.includes('sh') && !(actual && actual.sh != null)) meta.sh = Math.round(clamp(meta.s * r.h / r.w, 2, 50));
       const up = { [`img/${p}`]:r.src, [`piezas/${p}`]:meta };
       if(actual && actual.v){
         const viejo = await this.leerImg(p);
@@ -1937,7 +1977,9 @@ const Apar = {
       await this.escribir(up);
       this.estado(p, info.tipo === 'tira'
         ? `Listo: ${r.w} x ${r.h} px ya sin verde. El ancho de los adornos y el margen se calcularon solos; ajústalos si hace falta.`
-        : `Listo: ${r.w} x ${r.h} px ya sin verde. Ajusta las esquinas hasta que se vea bien.`);
+        : info.tipo === 'redondo'
+          ? `Listo: ${r.w} x ${r.h} px ya sin verde. Ajusta el tamaño viendo el overlay.`
+          : `Listo: ${r.w} x ${r.h} px ya sin verde. Ajusta las esquinas hasta que se vea bien.`);
     }catch(e){ this.estado(p, e.message || 'No se pudo procesar la imagen.'); }
   },
   async reprocesar(p){
@@ -2016,14 +2058,15 @@ const Apar = {
           <option value="0">Apagado</option><option value="1">Suave</option><option value="2">Fuerte</option></select></label></div>
         <p class="nota">El brillo cuesta un poco de rendimiento en OBS; si notas lentitud, déjalo en Apagado.</p>
       </article>`;
-    return `<p class="nota" style="margin:0 0 14px">Sube cada pieza con <b>fondo verde #00FF00</b> (también por dentro). Aquí se le quita el verde y se recorta sola. Mientras una pieza esté vacía, el overlay usa su diseño normal. Por ahora se aplican en la pestaña Votaciones.</p>`
+    return `<p class="nota" style="margin:0 0 14px">Sube cada pieza con <b>fondo verde #00FF00</b> (también por dentro). Aquí se le quita el verde y se recorta sola. Mientras una pieza esté vacía, el overlay usa su diseño normal. El número de cada pieza es el mismo de su prompt.</p>`
       + general + Object.keys(PIEZAS_INFO).map(p => {
       const i = PIEZAS_INFO[p];
+      const cab = i.grupo ? `<h3 class="apar-grupo">${i.grupo}</h3>` : '';
       const demo = i.tipo !== 'redondo'
         ? `<div class="apar-demo-caja" data-apar-demo style="width:${i.demo[0]}px;height:${i.demo[1]}px">${p === 'barra' ? '' : 'Texto de prueba'}</div>`
         : `<div class="apar-redondo" data-apar-demo>${i.texto}</div>`;
-      return `<article class="tarjeta apar" data-pieza="${p}">
-        <header class="tarjeta-cab"><h3>${i.nombre}</h3><span class="pill" data-apar-pill>Sin imagen</span></header>
+      return `${cab}<article class="tarjeta apar" data-pieza="${p}">
+        <header class="tarjeta-cab"><h3>${i.num ? i.num + '. ' : ''}${i.nombre}</h3><span class="pill" data-apar-pill>Sin imagen</span></header>
         <p class="nota">Genérala de <span class="apar-medida">${i.medida}</span>. Se usa en ${i.usa}.</p>
         <div class="apar-fila">
           <div class="apar-vista"><span class="apar-etq">Imagen</span><img data-apar-img alt="" hidden><span data-apar-vacio>Aún no hay imagen</span></div>
@@ -2081,29 +2124,32 @@ const Apar = {
       const k = H / (m.alto ?? 100), sl = Math.max(1, Math.round(m.w * (m.sh ?? 24) / 100)), ew = Math.round(H * sl / m.h);
       el.style.borderRadius = '0'; el.style.borderColor = 'transparent'; el.style.borderWidth = `0 ${ew}px`;
       el.style.borderImage = `url("${src}") 0 ${sl} fill / 0 ${ew}px / 0 stretch`;
-      const fl = Math.round(ew * (m.fl ?? 40) / 100), fv = Math.round((m.f ?? 14) * k);
+      const fl = Math.round(ew * (m.fl ?? 40) / 100), fv = info.em ? Math.round(H * (m.f ?? 30) / 100) : Math.round((m.f ?? 14) * k);
       el.style.background = `linear-gradient(rgba(13,13,13,.92),rgba(13,13,13,.92)) center / calc(100% - ${fl * 2}px) calc(100% - ${fv * 2}px) no-repeat`;
       el.style.backgroundOrigin = el.style.backgroundClip = 'border-box';
       return;
     }
     if(info.tipo === 'redondo'){
-      if(m && src){ el.style.backgroundImage = `url("${src}")`; el.style.borderRadius = '0'; el.style.transform = `scale(${(m.e ?? 130) / 130})`; }
+      const base = info.def.e || 130;
+      if(m && src){ el.style.backgroundImage = `url("${src}")`; el.style.borderRadius = '0'; el.style.transform = `scale(${(m.e ?? base) / base})`; }
       else { el.style.backgroundImage = 'radial-gradient(circle at 35% 30%,#FF4DA0,#FF007F 60%,#C90064)'; el.style.borderRadius = '50%'; el.style.transform = ''; }
       return;
     }
     if(!m || !src){
       el.style.background = ''; el.style.backgroundOrigin = el.style.backgroundClip = '';
-      el.style.borderImage = 'none'; el.style.borderWidth = '3px'; el.style.borderColor = '#FF007F'; el.style.borderRadius = p === 'marco' ? '16px' : '999px';
+      el.style.borderImage = 'none'; el.style.borderWidth = '3px'; el.style.borderColor = '#FF007F'; el.style.borderRadius = p === 'barra' ? '999px' : '16px';
       return;
     }
     // Vista a escala reducida (40%) de cómo se corta y estira el marco
     const k = .4, sv = Math.max(1, Math.round(m.h * (m.s ?? 20) / 100)), sh = Math.max(1, Math.round(m.w * (m.sh ?? 20) / 100));
-    const gv = Math.max(2, Math.round((m.g ?? 40) * k)), gh = Math.round(gv * sh / sv);
+    // En las cartas el grosor es un % del ancho de la carta
+    const rel = info.tipo === 'rel', W = info.demo[0];
+    const gv = Math.max(2, Math.round(rel ? W * (m.g ?? 12) / 100 : (m.g ?? 40) * k)), gh = Math.round(gv * sh / sv);
     el.style.borderColor = 'transparent';
     el.style.borderWidth = `${gv}px ${gh}px`;
-    el.style.borderRadius = Math.round((m.r ?? 24) * k) + 'px';
+    el.style.borderRadius = rel ? Math.round(W * .05) + 'px' : Math.round((m.r ?? 24) * k) + 'px';
     el.style.borderImage = `url("${src}") ${sv} ${sh} / ${gv}px ${gh}px / ${Math.round((m.o || 0) * k)}px stretch`;
-    const fv = Math.round((m.f ?? 20) * k);
+    const fv = rel ? Math.round(W * (m.f ?? 5) / 100) : Math.round((m.f ?? 20) * k);
     el.style.background = `linear-gradient(rgba(13,13,13,.92),rgba(13,13,13,.92)) center / calc(100% - ${fv * 2}px) calc(100% - ${fv * 2}px) no-repeat`;
     el.style.backgroundOrigin = el.style.backgroundClip = 'border-box';
     if(p === 'barra') el.style.height = Math.max(gv * 2 + 4, Math.round((m.alto ?? 30) * k * 1.6)) + 'px';
