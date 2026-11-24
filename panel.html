@@ -30,7 +30,14 @@ a{color:var(--rosa)}
 .marca .prueba{color:var(--negro);background:var(--rosa);border-radius:999px;padding:2px 10px;font-weight:700;font-size:12px}
 .conexion{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tenue)}
 .punto{width:9px;height:9px;border-radius:50%;background:#5a4a50;flex:none}
-.punto.ok{background:var(--neon);box-shadow:0 0 10px var(--neon)}
+/* Luces de conexión: verde conectado, amarillo conectando, rojo sin conexión, gris apagado */
+.punto.ok{background:#3FE08A;box-shadow:0 0 10px #3FE08A}
+.punto.espera{background:#FFB020;box-shadow:0 0 8px rgba(255,176,32,.7)}
+.punto.mal{background:#FF4D6D;box-shadow:0 0 8px rgba(255,77,109,.8)}
+.conexion + .conexion{margin-left:0}
+.chat-barra .punto{width:12px;height:12px}
+/* Palabras del dibujo tapadas mientras no le des a Ver */
+.tapado{-webkit-text-security:disc;text-security:disc}
 
 /* Botones */
 .btn{background:var(--sup2);border:1px solid var(--linea);border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer}
@@ -260,7 +267,8 @@ a{color:var(--rosa)}
 
 <header class="barra">
   <div class="marca"><div class="logo">BLOODSITAX</div><span>Panel del overlay</span><span class="prueba" id="marcaPrueba" hidden>Sala de pruebas</span></div>
-  <div class="conexion"><span class="punto" id="punto"></span><span id="textoConexion">Conectando</span></div>
+  <div class="conexion" title="Conexión con Firebase (lo que mueve el overlay)"><span class="punto espera" id="punto"></span><span id="textoConexion">Conectando</span></div>
+  <div class="conexion" title="Chat de Twitch de este panel (votos y juego de dibujo)"><span class="punto" id="puntoChat"></span><span id="textoChat">Chat apagado</span></div>
   <button class="btn borde" id="ocultarTodo">Ocultar todo</button>
 </header>
 
@@ -450,7 +458,7 @@ function porDefecto(id){
   if(d.tipo === 'votacion') base.opc = { dur:20 };
   if(d.tipo === 'encuesta') base.opc = { dur:30 };
   if(d.tipo === 'prefieres') base.opc = { dur:20, modo:'manual' };
-  if(d.tipo === 'dibujo') base.opc = { modo:'una', cartel:8, mods:false, plural:true };
+  if(d.tipo === 'dibujo') base.opc = { cartel:8, mods:false };
   return base;
 }
 const estado = {};
@@ -646,7 +654,7 @@ function tarjeta(id){
     cuerpo = `<div class="acciones"><button class="btn principal grande" data-act="mostrar">Mostrar</button><button class="btn grande" data-act="ocultar">Ocultar</button></div>
       <p class="nota">Muestra el chat de #${CANAL_TWITCH} con emotes y emblemas. El overlay se conecta solo cuando está visible, y marca los votos durante la votación.</p>`;
   } else if(e.tipo === 'prefieres'){
-    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+    cuerpo = `<div class="chat-barra"><span class="punto" data-chat-luz></span><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="modo-voto">
         <span>Modo</span>
         <div class="modo-botones">
@@ -687,23 +695,13 @@ function tarjeta(id){
       <p class="vot-estado-panel" data-vot-estado></p>
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'dibujo'){
-    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
-      <div class="form-fila">
-        <input class="campo" type="password" data-dib-palabras maxlength="400" autocomplete="off" spellcheck="false" placeholder="Palabra a adivinar (varias separadas por coma)">
-        <button class="btn" data-act="dver">Ver</button>
-      </div>
-      <p class="nota">Las palabras se quedan solo en este navegador: no se suben a Firebase, así que ni el overlay ni otro panel las pueden ver. Se aceptan sin acentos y sin importar mayúsculas.</p>
-      <div class="modo-voto">
-        <span>Con varias palabras</span>
-        <div class="modo-botones">
-          <button class="modo-btn" data-dib-modo="una"><b>Gana el primero</b><small></small></button>
-          <button class="modo-btn" data-dib-modo="cada"><b>Cada palabra por separado</b><small></small></button>
-        </div>
-        <p class="nota" data-dib-modo-nota></p>
-      </div>
+    cuerpo = `<div class="chat-barra"><span class="punto" data-chat-luz></span><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+      <textarea class="lista tapado" data-dib-palabras autocomplete="off" spellcheck="false" aria-label="Respuestas válidas"
+        placeholder="Una respuesta válida por línea, por ejemplo:&#10;casa&#10;la casa&#10;mansion"></textarea>
+      <div class="lista-info"><span data-dib-conteo>0 respuestas</span><button class="btn" data-act="dver">Ver</button></div>
+      <p class="nota">Cada línea es una respuesta que gana, escrita tal cual (con sus espacios). No importan mayúsculas, acentos ni signos, y cuenta aunque venga dentro de una frase ("creo que es la casa"). El primero que diga cualquiera gana. Las respuestas se quedan solo en este navegador: no se suben a Firebase.</p>
       <div class="opciones">
         <label class="opcion">Cartel en pantalla <select data-opc="cartel">${DIB_CARTELES.map(n => `<option value="${n}">${n ? n + ' s' : 'Hasta ocultarlo'}</option>`).join('')}</select></label>
-        <label class="opcion"><input type="checkbox" data-opc-check="plural"> Aceptar plural (gato = gatos)</label>
         <label class="opcion"><input type="checkbox" data-opc-check="mods"> Los mods no cuentan</label>
       </div>
       <div class="acciones">
@@ -718,7 +716,7 @@ function tarjeta(id){
       <p class="vot-estado-panel" data-vot-estado></p>
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'encuesta'){
-    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+    cuerpo = `<div class="chat-barra"><span class="punto" data-chat-luz></span><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="form-fila"><input class="campo" data-enc-pregunta maxlength="120" placeholder="Pregunta (aparece en la píldora de arriba, junto al tiempo)"></div>
       <textarea class="lista" data-enc placeholder="Una opción por línea (hasta 8). Cada una será una carta: A, B, C..." aria-label="Opciones de la votación"></textarea>
       <div class="lista-info"><span data-enc-conteo>0 de 8 opciones</span></div>
@@ -748,7 +746,7 @@ function tarjeta(id){
       <p class="vot-estado-panel" data-vot-estado></p>
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'votacion'){
-    cuerpo = `<div class="chat-barra"><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
+    cuerpo = `<div class="chat-barra"><span class="punto" data-chat-luz></span><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="acciones">
         <button class="btn principal grande" data-act="vgirar">Girar</button>
         <button class="btn grande" data-act="vreset">Resetear y girar todo</button>
@@ -1050,7 +1048,11 @@ function pintarRandom(forzar){
   if(seleccionado) document.querySelectorAll('.tarjeta[data-el]').forEach(t => t.classList.toggle('sel', t.dataset.el === seleccionado));
 }
 
-function conexion(ok, texto){ $('#punto').classList.toggle('ok', ok); $('#textoConexion').textContent = texto; }
+function conexion(ok, texto){
+  const p = $('#punto');
+  p.classList.toggle('ok', ok); p.classList.toggle('mal', !ok); p.classList.remove('espera');
+  $('#textoConexion').textContent = texto;
+}
 
 /* ---------- Ruleta ---------- */
 const anguloActual = d => d ? (d.giro ? d.giro.hasta : (d.angulo || 0)) : 0;
@@ -1319,15 +1321,19 @@ const Chat = {
     ws.onclose = () => {
       this.ws = null; this.conectado = false;
       if(this.quiere){
+        this.fallo = true;
         this.estado('Se perdió la conexión, reconectando...');
         setTimeout(() => { if(this.quiere) this.conectar(); }, Math.min(15000, 1000 * 2 ** this.intento++));
       } else this.estado('Chat desconectado');
     };
     if(!this.cargadas) this.cargarInsignias();
   },
-  desconectar(){ this.quiere = false; if(this.ws) this.ws.close(); else this.estado('Chat desconectado'); },
+  desconectar(){ this.quiere = false; this.fallo = false; if(this.ws) this.ws.close(); else this.estado('Chat desconectado'); },
   alternar(){ this.quiere ? this.desconectar() : this.conectar(); },
   estado(t){ this.texto = t; document.querySelectorAll('[data-chat-estado]').forEach(el => { el.textContent = t; el.classList.toggle('ok', this.conectado); });
+    const luz = this.conectado ? 'ok' : !this.quiere ? '' : this.fallo ? 'mal' : 'espera';
+    document.querySelectorAll('[data-chat-luz], #puntoChat').forEach(el => { el.className = 'punto' + (luz ? ' ' + luz : ''); });
+    $('#textoChat').textContent = this.conectado ? 'Chat conectado' : !this.quiere ? 'Chat apagado' : this.fallo ? 'Chat reconectando' : 'Chat conectando';
     document.querySelectorAll('[data-act="chat"]').forEach(b => b.textContent = this.quiere ? 'Desconectar chat' : 'Conectar chat'); },
   async cargarInsignias(){
     this.cargadas = true;
@@ -1365,7 +1371,7 @@ const Chat = {
     if(!m) return;
     const [, prefijo = '', comando, , texto = ''] = m;
     if(comando === 'ROOMSTATE' || comando === '366'){
-      if(!this.conectado){ this.conectado = true; this.intento = 0; this.estado('Conectado al chat de #' + CANAL_TWITCH); }
+      if(!this.conectado){ this.conectado = true; this.fallo = false; this.intento = 0; this.estado('Conectado al chat de #' + CANAL_TWITCH); }
     } else if(comando === 'PRIVMSG') this.mensaje(tags, prefijo.split('!')[0], texto);
   },
   mensaje(tags, login, texto){
@@ -1872,13 +1878,14 @@ const DIB_YA = 3000;   // ms desde el inicio hasta el "YA": antes de eso no cuen
 const BOTS = new Set(['nightbot','streamelements','streamlabs','moobot','fossabot','wizebot','sery_bot','soundalerts','kofistreambot','botrixoficial','pokemoncommunitygame']);
 // Minúsculas, sin acentos ni signos: "¡Gató!!" y "gato" son lo mismo
 const normDib = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+// Una respuesta por línea. Se quita un guion o viñeta al inicio ("-casa" = "casa").
 function leerPalabras(txt){
   const vistas = new Set(), out = [];
-  for(const p of String(txt || '').split(/[,;\n]+/)){
-    const w = p.trim().slice(0, 40), n = normDib(w);
+  for(const linea of String(txt || '').split(/\r?\n/)){
+    const w = linea.replace(/^\s*[-•*·]+\s*/, '').trim().slice(0, 60), n = normDib(w);
     if(!n || vistas.has(n)) continue;
     vistas.add(n); out.push({ w, n, por:'' });
-    if(out.length >= 20) break;
+    if(out.length >= 50) break;
   }
   return out;
 }
@@ -1907,7 +1914,7 @@ const Dib = {
     const t = document.querySelector(`.tarjeta[data-el="${DIB_ID}"]`);
     const texto = t ? t.querySelector('[data-dib-palabras]').value : this.local.texto;
     const palabras = leerPalabras(texto);
-    if(!palabras.length){ toast('Escribe al menos una palabra'); if(t) t.querySelector('[data-dib-palabras]').focus(); return; }
+    if(!palabras.length){ toast('Escribe al menos una respuesta'); if(t) t.querySelector('[data-dib-palabras]').focus(); return; }
     const d = this.datos();
     if(d.fase === 'dibujando' && !confirm('Hay una ronda en curso. ¿Empezar una nueva?')) return;
     if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
@@ -1921,19 +1928,17 @@ const Dib = {
   revisar(tags, login, msg){
     const d = this.datos();
     if(!this.activo || d.fase !== 'dibujando' || d.ronda !== this.local.ronda || ahora() < (d.inicio || 0) + DIB_YA) return null;
-    const insig = tags.badges || '', o = estado[DIB_ID].opc || {};
+    const insig = tags.badges || '', o = (estado[DIB_ID] && estado[DIB_ID].opc) || {};
     if(/(^|,)broadcaster\//.test(insig) || BOTS.has(String(login).toLowerCase())) return null;   // la que dibuja y los bots no cuentan
     if(o.mods && /(^|,)moderator\//.test(insig)) return null;
     const m = normDib(msg); if(!m) return null;
-    const conEsp = ' ' + m + ' ', junto = m.replace(/ /g, '');
-    const acierta = n => conEsp.includes(' ' + n + ' ') || junto === n.replace(/ /g, '')
-      || (o.plural !== false && (conEsp.includes(' ' + n + 's ') || conEsp.includes(' ' + n + 'es ')));
-    const p = this.local.palabras.find(x => !x.por && acierta(x.n));
+    // la respuesta tiene que aparecer completa y tal cual (palabras enteras, con sus espacios)
+    const conEsp = ' ' + m + ' ';
+    const p = this.local.palabras.find(x => conEsp.includes(' ' + x.n + ' '));
     if(!p) return null;
     const nombre = String(tags['display-name'] || login).slice(0, 40);
     p.por = nombre; this.guardar();
-    const hechas = this.local.palabras.filter(x => x.por).length;
-    const fin = o.modo !== 'cada' || hechas >= this.local.palabras.length;
+    const hechas = 1, fin = true;            // cualquier respuesta gana y la ronda termina
     const largo = Array.from(msg).length > 200;
     const ac = { n:nombre, m:largo ? Array.from(msg).slice(0, 200).join('') + '...' : msg, e:largo ? '' : (tags.emotes || ''), t:ahora() };
     if(fin) this.parar();
@@ -1944,10 +1949,10 @@ const Dib = {
   revelar(){
     const d = this.datos();
     if(d.ronda !== this.local.ronda || !this.local.palabras.length) return toast('No hay palabras de una ronda de este panel');
-    const faltan = this.local.palabras.filter(x => !x.por).map(x => x.w);
-    if(!faltan.length) return toast('Ya adivinaron todas las palabras');
+    if(this.local.palabras.some(x => x.por)) return toast('Ya adivinaron');
     this.parar();
-    update(DIB_ID, { visible:true, datos:{ ...d, fase:'fin', rev:{ t:ahora(), w:faltan } } });
+    // se muestra la primera línea (la respuesta principal)
+    update(DIB_ID, { visible:true, datos:{ ...d, fase:'fin', rev:{ t:ahora(), w:[this.local.palabras[0].w] } } });
   },
   terminar(){
     const d = this.datos();
@@ -1961,34 +1966,28 @@ const Dib = {
   }
 };
 function pintarDibujo(t, e){
-  const d = e.datos || {}, o = e.opc || {}, modo = o.modo === 'cada' ? 'cada' : 'una';
+  const d = e.datos || {}, o = e.opc || {};
   const enCurso = d.fase === 'dibujando', mia = !!d.ronda && d.ronda === Dib.local.ronda;
   const inp = t.querySelector('[data-dib-palabras]');
-  inp.type = Dib.ver ? 'text' : 'password';
+  inp.classList.toggle('tapado', !Dib.ver);
   if(inp !== document.activeElement) inp.value = Dib.local.texto;
+  const nResp = leerPalabras(inp.value).length;
+  t.querySelector('[data-dib-conteo]').textContent = `${nResp} ${nResp === 1 ? 'respuesta' : 'respuestas'}`;
   t.querySelector('[data-act="dver"]').textContent = Dib.ver ? 'Ocultar' : 'Ver';
-  t.querySelectorAll('[data-dib-modo]').forEach(b => {
-    const act = b.dataset.dibModo === modo;
-    b.classList.toggle('activo', act); b.disabled = Dib.activo;
-    b.querySelector('small').textContent = act ? 'ACTIVADO' : 'Desactivado';
-  });
-  t.querySelector('[data-dib-modo-nota]').textContent = modo === 'una'
-    ? 'El primero que acierte cualquiera de las palabras gana y la ronda termina.'
-    : 'La ronda sigue hasta que adivinen todas; cada acierto saca su propio cartel.';
   t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String(o[sel.dataset.opc] ?? 8); });
-  t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = c.dataset.opcCheck === 'plural' ? o.plural !== false : !!o[c.dataset.opcCheck]; });
+  t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = !!o[c.dataset.opcCheck]; });
 
   // Palabras de la ronda (tapadas salvo que le des a Ver)
   const filas = t.querySelector('[data-dib-filas]');
   const pals = mia ? Dib.local.palabras : [];
-  const html = pals.map((p, i) => `<div class="res-fila vfila ${p.por ? 'gana' : ''}"><span class="vletra">${i + 1}</span><span class="res-nom">${esc(Dib.ver ? p.w : enmascarar(p.w))}</span><span class="vconteo">${p.por ? 'Adivinó ' + esc(p.por) : enCurso ? 'Pendiente' : 'Nadie'}</span></div>`).join('');
+  const html = pals.map((p, i) => `<div class="res-fila vfila ${p.por ? 'gana' : ''}"><span class="vletra">${i + 1}</span><span class="res-nom">${esc(Dib.ver ? p.w : enmascarar(p.w))}</span><span class="vconteo">${p.por ? 'Adivinó ' + esc(p.por) : ''}</span></div>`).join('');
   if(filas._html !== html){ filas._html = html; filas.innerHTML = html; }
 
   let txt;
   const ac = lista(d.aciertos), ult = ac[ac.length - 1];
   if(enCurso && mia){
     const pasa = ahora() - (d.inicio || 0);
-    txt = pasa < DIB_YA + 1000 ? 'Cuenta regresiva en pantalla...' : `Dibujando: ${relojDib(pasa - DIB_YA)}. Adivinadas ${d.hechas || 0} de ${d.total || 0}.`;
+    txt = pasa < DIB_YA + 1000 ? 'Cuenta regresiva en pantalla...' : `Dibujando: ${relojDib(pasa - DIB_YA)}. Esperando a que alguien adivine.`;
     if(!Chat.conectado) txt += ' Ojo: el chat no está conectado, nadie puede adivinar.';
   }
   else if(enCurso) txt = 'Hay una ronda en curso que empezó otro panel. Las palabras solo las tiene ese navegador.';
@@ -1997,7 +1996,7 @@ function pintarDibujo(t, e){
   else if(d.fase === 'fin') txt = 'Ronda terminada.';
   else txt = 'Escribe la palabra, que ella abra Paint y dale a Iniciar ronda.';
   t.querySelector('[data-vot-estado]').textContent = txt;
-  t.querySelector('[data-act="drev"]').disabled = !(mia && Dib.local.palabras.some(p => !p.por) && d.fase !== 'fin');
+  t.querySelector('[data-act="drev"]').disabled = !(mia && enCurso);
   t.querySelector('[data-act="doc"]').disabled = !d.ronda;
   t.querySelector('[data-act="dfin"]').disabled = !d.ronda;
   const est = t.querySelector('[data-chat-estado]');
@@ -2809,11 +2808,6 @@ function eventos(){
       if((estado[id].vot || {}).fase === 'votando') return toast('No se puede cambiar durante la votación');
       return update(id, { opc:{ ...(estado[id].opc || {}), modo:pfm.dataset.pfModo } });
     }
-    const dm = ev.target.closest('[data-dib-modo]');
-    if(dm){
-      if(Dib.activo) return toast('No se puede cambiar durante la ronda');
-      return update(id, { opc:{ ...(estado[id].opc || {}), modo:dm.dataset.dibModo } });
-    }
     const md = ev.target.closest('[data-modo]');
     if(md){
       const fase = (estado[id].vot || {}).fase;
@@ -2929,7 +2923,12 @@ function eventos(){
       ta._t = setTimeout(() => { ta._t = 0; cambiarLista(id, leerLista(ta.value)); }, 350);
       return;
     }
-    if(ev.target.matches('[data-dib-palabras]')){ Dib.local.texto = ev.target.value; Dib.guardar(); return; }
+    if(ev.target.matches('[data-dib-palabras]')){
+      Dib.local.texto = ev.target.value; Dib.guardar();
+      const n = leerPalabras(ev.target.value).length;
+      ev.target.closest('.tarjeta').querySelector('[data-dib-conteo]').textContent = `${n} ${n === 1 ? 'respuesta' : 'respuestas'}`;
+      return;
+    }
     const inp = ev.target.closest('[data-campo]'); if(!inp) return;
     const id = inp.closest('.tarjeta').dataset.el, c = inp.dataset.campo;
     let v = Number(inp.value); if(inp.value === '' || Number.isNaN(v)) return;
