@@ -44,7 +44,9 @@ body.guias .el{outline:3px dashed #FF007F}
 
 /* Ruleta */
 .ruleta{position:relative;width:100%;height:100%}
-.rueda{position:absolute;inset:0;width:100%;height:100%;will-change:transform;filter:drop-shadow(0 0 18px rgba(255,0,127,.45))}
+.rueda{position:absolute;inset:0;width:100%;height:100%;will-change:transform}
+/* El brillo es redondo, así que no necesita girar: va en un círculo fijo detrás de la rueda */
+.ruleta::before{content:"";position:absolute;inset:2%;border-radius:50%;box-shadow:0 0 18px 4px rgba(255,0,127,.45);pointer-events:none}
 .puntero{position:absolute;left:50%;top:-3%;width:9%;transform:translateX(-50%);filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));z-index:2}
 .eje{position:absolute;left:50%;top:50%;width:12%;height:12%;transform:translate(-50%,-50%);border-radius:50%;box-sizing:border-box;
   background:#0D0D0D;border:calc(var(--u)*7px) solid #FFC2DC;box-shadow:0 0 0 calc(var(--u)*5px) #FF007F}
@@ -332,7 +334,7 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .aro,.puntero-img{display:none;position:absolute;pointer-events:none;background-position:center;background-size:contain;background-repeat:no-repeat}
 .skin-aro .aro{display:block;left:50%;top:50%;width:calc(var(--mk-aro-esc) * 100%);height:calc(var(--mk-aro-esc) * 100%);transform:translate(-50%,-50%);
   background-image:var(--mk-aro);z-index:1}
-.skin-aro .rueda{filter:none}
+.skin-aro .ruleta::before{display:none}
 .skin-puntero .puntero{display:none}
 .skin-puntero .puntero-img{display:block;left:50%;top:-4%;width:calc(var(--mk-puntero-esc) * 10%);aspect-ratio:1;transform:translateX(-50%);
   background-image:var(--mk-puntero);z-index:2;filter:drop-shadow(0 3px 4px rgba(0,0,0,.55))}
@@ -391,6 +393,30 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 /* La etiqueta de la votación solo aparece en empate, desempate y ganador */
 .skin-etiqueta .vot-fase{display:none}
 .skin-etiqueta .enc.fase-empate .vot-fase,.skin-etiqueta .enc.fase-desempate .vot-fase,.skin-etiqueta .enc.fase-ganador .vot-fase{display:flex}
+/* Dibuja y adivina: cuenta 3, 2, 1, YA y el cartel de quien adivina. Mientras dibujan no se ve nada. */
+.dib{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.dib-cuenta{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.dib-cuenta span{display:none;font-weight:800;line-height:1;color:#FFFFFF;font-size:calc(var(--u)*330px);
+  -webkit-text-stroke:calc(var(--u)*14px) #FF007F;paint-order:stroke fill;
+  text-shadow:0 0 calc(var(--u)*40px) rgba(255,0,127,.85), 0 calc(var(--u)*10px) 0 #0D0D0D}
+.dib-cuenta span.ya{font-size:calc(var(--u)*240px);color:#FFC2DC}
+.dib-cuenta span.ver{display:block;animation:dibPop 1s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes dibPop{0%{opacity:0;transform:scale(1.9)}18%{opacity:1;transform:scale(1)}78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.75)}}
+.dib-cartel{position:relative;box-sizing:border-box;max-width:94%;min-width:60%;text-align:center;
+  padding:calc(var(--u)*34px) calc(var(--u)*56px) calc(var(--u)*40px);border-radius:calc(var(--u)*40px);
+  background:rgba(13,13,13,.94);border:calc(var(--u)*7px) solid #FF007F;
+  box-shadow:inset 0 0 0 calc(var(--u)*3px) #FFC2DC, 0 0 calc(var(--u)*50px) rgba(255,0,127,.6);
+  opacity:0;transform:scale(.6);transition:opacity .25s ease, transform .5s cubic-bezier(.2,1.5,.4,1);visibility:hidden}
+.dib-cartel.ver{opacity:1;transform:scale(1);visibility:visible}
+.dib-tit{display:inline-block;background:#FF007F;color:#FFFFFF;font-weight:800;letter-spacing:.06em;
+  font-size:calc(var(--u)*34px);padding:calc(var(--u)*8px) calc(var(--u)*30px);border-radius:999px;
+  margin-top:calc(var(--u)*-62px);margin-bottom:calc(var(--u)*14px);box-shadow:0 0 0 calc(var(--u)*4px) #0D0D0D}
+.dib-nom{font-weight:800;font-size:calc(var(--u)*92px);line-height:1.08;color:#FFFFFF;overflow-wrap:anywhere;
+  text-shadow:0 0 calc(var(--u)*24px) rgba(255,0,127,.7)}
+.dib-msg{margin-top:calc(var(--u)*14px);font-weight:700;font-size:calc(var(--u)*46px);line-height:1.2;color:#FFC2DC;overflow-wrap:anywhere}
+.dib-msg .emote{height:1.25em;vertical-align:middle;margin:0 .08em}
+.dib-msg:empty{display:none}
+@media (prefers-reduced-motion:reduce){.dib-cuenta span.ver{animation:none}.dib-cartel{transition:none}}
 @media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
 </style>
 </head>
@@ -511,14 +537,86 @@ function actualizarRuleta(c, e){
     return;
   }
   r.caja.querySelector('strong').textContent = g.nombre || '';
+  r.caja.classList.remove('ver');
+  let ultimo = '';
   const paso = () => {
     const p = Math.min(1, Math.max(0, (ahora() - g.inicio) / g.duracion));
-    const ang = g.desde + (g.hasta - g.desde) * (1 - Math.pow(1 - p, 4));
-    r.canvas.style.transform = `rotate(${ang}deg)`;
-    if(p < 1){ r.caja.classList.remove('ver'); r.raf = requestAnimationFrame(paso); }
+    const ang = (g.desde + (g.hasta - g.desde) * (1 - Math.pow(1 - p, 4))).toFixed(2);
+    if(ang !== ultimo){ ultimo = ang; r.canvas.style.transform = `rotate(${ang}deg)`; }
+    if(p < 1) r.raf = requestAnimationFrame(paso);
     else r.caja.classList.add('ver');
   };
   paso();
+}
+
+/* ---------- Dibuja y adivina ---------- */
+// El panel manda: ronda, inicio de la cuenta (hora del servidor), aciertos y, si nadie adivina, las palabras reveladas.
+// Las palabras nunca llegan aquí antes de que alguien las adivine.
+const DIB_CUENTA = ['3', '2', '1', 'YA'];
+function crearDibujo(c){
+  c.innerHTML = `<div class="dib">
+    <div class="dib-cuenta"><span></span></div>
+    <div class="dib-cartel"><div class="dib-tit"></div><div class="dib-nom"></div><div class="dib-msg"></div></div>
+  </div>`;
+  c._dib = { num:c.querySelector('.dib-cuenta span'), cartel:c.querySelector('.dib-cartel'),
+             tit:c.querySelector('.dib-tit'), nom:c.querySelector('.dib-nom'), msg:c.querySelector('.dib-msg'),
+             ronda:null, vistos:0, rev:0, oc:0, cola:[], mostrando:false, timers:[], tcuenta:[] };
+}
+// Dos grupos de tiempos: los de la cuenta y los del cartel, para que un acierto no corte la cuenta
+function dibTimer(r, fn, ms, k = 'timers'){ const id = setTimeout(() => { r[k] = r[k].filter(x => x !== id); fn(); }, Math.max(0, ms)); r[k].push(id); }
+function dibLimpiar(r, k = 'timers'){ r[k].forEach(clearTimeout); r[k] = []; }
+function dibCuenta(r, inicio){
+  const t0 = inicio - ahora();
+  DIB_CUENTA.forEach((txt, i) => {
+    if(t0 + (i + 1) * 1000 <= 0) return;                       // ese número ya pasó (overlay recargado tarde)
+    dibTimer(r, () => {
+      r.num.classList.remove('ver'); void r.num.offsetWidth;    // reinicia la animación
+      r.num.textContent = txt; r.num.classList.toggle('ya', txt === 'YA'); r.num.classList.add('ver');
+    }, t0 + i * 1000, 'tcuenta');
+  });
+  dibTimer(r, () => r.num.classList.remove('ver'), t0 + DIB_CUENTA.length * 1000, 'tcuenta');
+}
+function dibOcultarCartel(r){ r.cartel.classList.remove('ver'); r.mostrando = false; }
+function dibSiguiente(r, dur){
+  const it = r.cola.shift();
+  if(!it){ r.mostrando = false; return; }
+  r.mostrando = true;
+  r.tit.textContent = it.tit; r.nom.textContent = it.nom;
+  r.msg.innerHTML = it.msg;
+  r.cartel.classList.remove('ver'); void r.cartel.offsetWidth; r.cartel.classList.add('ver');
+  // sin tiempo (0): se queda hasta el siguiente acierto o hasta que lo oculten desde el panel
+  const ms = dur > 0 ? dur * 1000 : (r.cola.length ? 4000 : 0);
+  if(ms) dibTimer(r, () => { if(r.cola.length) dibSiguiente(r, dur); else dibOcultarCartel(r); }, ms);
+}
+function dibEncolar(r, item, dur){
+  r.cola.push(item);
+  if(!r.mostrando || dur === 0){ dibLimpiar(r); dibSiguiente(r, dur); }
+}
+function actualizarDibujo(c, e){
+  const r = c._dib, d = e.datos || {}, dur = Number((e.opc || {}).cartel ?? 8);
+  if(!d.ronda){ dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.num.classList.remove('ver'); dibOcultarCartel(r); r.cola = []; r.ronda = null; return; }
+  const aciertos = lista(d.aciertos);
+  if(r.ronda !== d.ronda){
+    const primera = r.ronda === null;
+    dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.cola = []; dibOcultarCartel(r); r.num.classList.remove('ver');
+    r.ronda = d.ronda; r.vistos = 0; r.rev = 0; r.oc = d.oc || 0;
+    if(ahora() < (d.inicio || 0) + DIB_CUENTA.length * 1000) dibCuenta(r, d.inicio || ahora());
+    // overlay recién abierto con la ronda ya avanzada: solo se repite el último cartel si sigue vigente
+    if(primera && aciertos.length){
+      const ult = aciertos[aciertos.length - 1];
+      r.vistos = (dur > 0 && ahora() - ult.t > dur * 1000) || (d.oc && d.oc > ult.t) ? aciertos.length : aciertos.length - 1;
+    }
+    if(primera && d.rev) r.rev = d.rev.t;
+  }
+  for(; r.vistos < aciertos.length; r.vistos++){
+    const a = aciertos[r.vistos];
+    dibEncolar(r, { tit:'ADIVINÓ', nom:a.n || '', msg:conEmotes(String(a.m || ''), a.e) }, dur);
+  }
+  if(d.rev && d.rev.t !== r.rev){
+    r.rev = d.rev.t;
+    dibEncolar(r, { tit:'NADIE ADIVINÓ', nom:'Era: ' + lista(d.rev.w).join(', '), msg:'' }, dur);
+  }
+  if(d.oc && d.oc !== r.oc){ r.oc = d.oc; r.cola = []; dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.num.classList.remove('ver'); dibOcultarCartel(r); }
 }
 
 /* ---------- Imágenes bajo demanda ---------- */
@@ -1150,6 +1248,7 @@ const TIPOS = {
     liberar(c){ c.firstChild.removeAttribute('src'); }
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
+  dibujo: { crear: crearDibujo, actualizar: actualizarDibujo },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
   votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
@@ -1163,6 +1262,7 @@ const nodos = {}, ultimoT = {};
 function detener(n){
   const c = n.firstChild; if(!c) return;
   if(c._ruleta) cancelAnimationFrame(c._ruleta.raf);
+  if(c._dib){ dibLimpiar(c._dib); dibLimpiar(c._dib, 'tcuenta'); }
   if(c._tirada){ c._tirada.token++; c._tirada.timers.forEach(clearTimeout); }
 }
 // Campos que solo mueven el elemento: si solo cambia uno de estos, no se vuelve a dibujar el contenido
