@@ -42,14 +42,33 @@ body.guias .el{outline:3px dashed #FF007F}
 /* Imagen */
 .imagen{display:block;width:100%;height:100%;object-fit:contain}
 
-/* Ruleta */
+/* Ruleta
+   Solo gira el canvas de las casillas (se dibuja una vez por lista). El aro con focos, el brillo, el puntero,
+   el centro y el foco del ganador son capas fijas: el giro cuesta lo mismo que una ruleta simple. */
 .ruleta{position:relative;width:100%;height:100%}
-.rueda{position:absolute;inset:0;width:100%;height:100%;will-change:transform}
-/* El brillo es redondo, así que no necesita girar: va en un círculo fijo detrás de la rueda */
-.ruleta::before{content:"";position:absolute;inset:2%;border-radius:50%;box-shadow:0 0 18px 4px rgba(255,0,127,.45);pointer-events:none}
-.puntero{position:absolute;left:50%;top:-3%;width:9%;transform:translateX(-50%);filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));z-index:2}
-.eje{position:absolute;left:50%;top:50%;width:12%;height:12%;transform:translate(-50%,-50%);border-radius:50%;box-sizing:border-box;
-  background:#0D0D0D;border:calc(var(--u)*7px) solid #FFC2DC;box-shadow:0 0 0 calc(var(--u)*5px) #FF007F}
+.ruleta > canvas,.ruleta > .capa{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.rueda{will-change:transform}
+.ruleta::before{content:"";position:absolute;inset:1.5%;border-radius:50%;box-shadow:0 0 calc(var(--u)*46px) calc(var(--u)*6px) rgba(255,0,127,.5);pointer-events:none}
+.focos{will-change:opacity}
+.focos-b{opacity:0}
+.ruleta.girando .focos-a{animation:focoA .44s steps(1,end) infinite}
+.ruleta.girando .focos-b{animation:focoB .44s steps(1,end) infinite}
+.ruleta.gano .focos-a{animation:focoA .2s steps(1,end) 12}
+.ruleta.gano .focos-b{animation:focoB .2s steps(1,end) 12}
+@keyframes focoA{0%{opacity:1}50%{opacity:.15}}
+@keyframes focoB{0%{opacity:0}50%{opacity:1}}
+.ruleta > .brillo{inset:7%;width:auto;height:auto;border-radius:50%;
+  background:radial-gradient(ellipse 75% 48% at 50% 14%, rgba(255,255,255,.26), rgba(255,255,255,.05) 55%, rgba(255,255,255,0) 70%),
+             radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 62%, rgba(0,0,0,.28) 100%)}
+.foco{opacity:0;transition:opacity .45s ease}
+.ruleta.gano .foco{opacity:1}
+.punta{position:absolute;inset:0;transform-origin:50% 3.5%;z-index:2;pointer-events:none}
+.puntero{position:absolute;left:50%;top:-1.5%;width:10.5%;transform:translateX(-50%);filter:drop-shadow(0 calc(var(--u)*5px) calc(var(--u)*4px) rgba(0,0,0,.6))}
+.eje{position:absolute;left:50%;top:50%;width:13%;height:13%;transform:translate(-50%,-50%);border-radius:50%;box-sizing:border-box;z-index:2;
+  background:radial-gradient(circle at 50% 38%, #3A0B22 0%, #140810 70%);
+  border:calc(var(--u)*6px) solid #FFC2DC;box-shadow:0 0 0 calc(var(--u)*6px) #FF007F, 0 0 calc(var(--u)*30px) rgba(255,0,127,.8), inset 0 calc(var(--u)*-6px) calc(var(--u)*12px) rgba(0,0,0,.6)}
+.eje::after{content:"";position:absolute;left:50%;top:50%;width:30%;height:30%;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle at 40% 35%, #FFFFFF, #FFC2DC 45%, #FF007F 100%);box-shadow:0 0 calc(var(--u)*14px) #FF007F}
 .ganador{position:absolute;left:50%;top:50%;width:76%;box-sizing:border-box;z-index:3;
   display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*10px);text-align:center;
   padding:calc(var(--u)*30px) calc(var(--u)*30px);border-radius:calc(var(--u)*32px);
@@ -57,8 +76,11 @@ body.guias .el{outline:3px dashed #FF007F}
   box-shadow:inset 0 0 0 calc(var(--u)*3px) #FFC2DC, 0 0 60px rgba(255,0,127,.65);
   opacity:0;transform:translate(-50%,-50%) scale(.55);transition:opacity .3s ease, transform .55s cubic-bezier(.2,1.5,.4,1)}
 .ganador.ver{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.ganador span{color:#FFC2DC;font-weight:700;font-size:calc(var(--u)*36px)}
-.ganador strong{color:#FFFFFF;font-weight:800;font-size:calc(var(--u)*76px);line-height:1.1;overflow-wrap:anywhere}
+.ganador span{color:#FFFFFF;background:#FF007F;font-weight:800;letter-spacing:.12em;font-size:calc(var(--u)*30px);
+  padding:calc(var(--u)*6px) calc(var(--u)*26px);border-radius:999px;margin-top:calc(var(--u)*-58px);box-shadow:0 0 0 calc(var(--u)*5px) #0D0D0D}
+.ganador strong{color:#FFFFFF;font-weight:800;font-size:calc(var(--u)*76px);line-height:1.1;overflow-wrap:anywhere;
+  text-shadow:0 0 calc(var(--u)*22px) rgba(255,0,127,.75)}
+.ganador.corta strong{font-size:calc(var(--u)*110px)}
 
 /* Randoms con cartas (killer, survi, Marvel) */
 .tirada{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
@@ -334,7 +356,7 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .aro,.puntero-img{display:none;position:absolute;pointer-events:none;background-position:center;background-size:contain;background-repeat:no-repeat}
 .skin-aro .aro{display:block;left:50%;top:50%;width:calc(var(--mk-aro-esc) * 100%);height:calc(var(--mk-aro-esc) * 100%);transform:translate(-50%,-50%);
   background-image:var(--mk-aro);z-index:1}
-.skin-aro .ruleta::before{display:none}
+.skin-aro .ruleta::before,.skin-aro .aro-c,.skin-aro .focos{display:none}
 .skin-puntero .puntero{display:none}
 .skin-puntero .puntero-img{display:block;left:50%;top:-4%;width:calc(var(--mk-puntero-esc) * 10%);aspect-ratio:1;transform:translateX(-50%);
   background-image:var(--mk-puntero);z-index:2;filter:drop-shadow(0 3px 4px rgba(0,0,0,.55))}
@@ -472,79 +494,160 @@ function tarjetaPrueba(c, e){
 }
 
 /* ---------- Ruleta ---------- */
-const COLORES = [['#FF007F','#FFFFFF'], ['#FFC2DC','#0D0D0D'], ['#0D0D0D','#FFFFFF']];
+// Cada casilla: [claro (borde), oscuro (centro), texto]. Se alternan las tres.
+const PALETAS = {
+  rosa:   [['#FF3D9A','#C2005C','#FFFFFF'], ['#FFE1EE','#FFB3D3','#3A0B22'], ['#4A1530','#1A0811','#FFC2DC']],
+  normal: [['#FF3D9A','#B8005A','#FFFFFF'], ['#FFFFFF','#FFD3E6','#1A0811'], ['#2A1420','#0D0D0D','#FFC2DC']]
+};
+const R_RUEDA = .86, R_ARO = .985;   // radio de las casillas y borde exterior del aro (fracción del radio total)
 function recortar(ctx, t, max){
   if(ctx.measureText(t).width <= max) return t;
   while(t.length > 1 && ctx.measureText(t + '…').width > max) t = t.slice(0, -1);
   return t + '…';
 }
+const ladoCanvas = tam => Math.min(1600, Math.round(tam * 1.5));
+function lienzo(cv, S){ if(cv.width !== S){ cv.width = S; cv.height = S; } const x = cv.getContext('2d'); x.clearRect(0, 0, S, S); return x; }
 function dibujarRueda(cv, ops, tam, estilo){
-  const rosa = estilo === 'rosa';
-  const S = Math.round(tam * 1.5);
-  cv.width = S; cv.height = S;
-  const x = cv.getContext('2d'), c = S / 2, R = c * .94, n = ops.length;
-  x.clearRect(0, 0, S, S);
+  const S = ladoCanvas(tam), x = lienzo(cv, S), c = S / 2, R = c * R_RUEDA, n = ops.length;
+  const pal = PALETAS[estilo === 'rosa' ? 'rosa' : 'normal'];
   if(!n){
-    x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.fillStyle = '#0D0D0D'; x.fill();
+    x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.fillStyle = '#140810'; x.fill();
     x.font = `800 ${S * .05}px "M PLUS Rounded 1c", system-ui, sans-serif`;
     x.fillStyle = '#FFC2DC'; x.textAlign = 'center'; x.textBaseline = 'middle';
     x.fillText('Lista vacía', c, c + R * .45);
-  } else {
-    const seg = Math.PI * 2 / n;
-    const col = ops.map((_, i) => i % 3);
-    if(n > 1 && col[n - 1] === col[0]) col[n - 1] = col[n - 2] === 1 ? 2 : 1;
-    const fs = Math.max(S * .012, Math.min(R * .085, R * seg * .42));
+    return;
+  }
+  // un degradado por color (oscuro al centro, claro al borde): se crean una sola vez
+  const grad = pal.map(([claro, oscuro]) => { const g = x.createRadialGradient(c, c, R * .12, c, c, R); g.addColorStop(0, oscuro); g.addColorStop(1, claro); return g; });
+  const seg = Math.PI * 2 / n;
+  const col = ops.map((_, i) => i % 3);
+  if(n > 1 && col[n - 1] === col[0]) col[n - 1] = col[n - 2] === 1 ? 2 : 1;
+  const fs = Math.max(S * .013, Math.min(R * .1, R * seg * .44));
+  for(let i = 0; i < n; i++){
+    const a = -Math.PI / 2 + i * seg;
+    x.beginPath(); x.moveTo(c, c); x.arc(c, c, R, a, a + seg); x.closePath();
+    x.fillStyle = grad[col[i]]; x.fill();
+  }
+  // separadores con un punto brillante en el borde
+  if(n > 1){
+    x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = S * .0035;
     for(let i = 0; i < n; i++){
       const a = -Math.PI / 2 + i * seg;
-      x.beginPath(); x.moveTo(c, c); x.arc(c, c, R, a, a + seg); x.closePath();
-      x.fillStyle = rosa ? '#FFC2DC' : COLORES[col[i]][0]; x.fill();
-      if(n > 1){ x.lineWidth = S * (rosa ? .005 : .003); x.strokeStyle = rosa ? '#FF007F' : '#0D0D0D'; x.stroke(); }
-      x.save();
-      x.translate(c, c); x.rotate(a + seg / 2);
-      x.font = `800 ${fs}px "M PLUS Rounded 1c", system-ui, sans-serif`;
-      x.textAlign = 'right'; x.textBaseline = 'middle'; x.fillStyle = rosa ? '#0D0D0D' : COLORES[col[i]][1];
-      x.fillText(recortar(x, String(ops[i]), R * .66), R * .9, 0);
-      x.restore();
+      x.beginPath(); x.moveTo(c + Math.cos(a) * R * .14, c + Math.sin(a) * R * .14); x.lineTo(c + Math.cos(a) * R, c + Math.sin(a) * R); x.stroke();
+      if(n <= 48){ x.beginPath(); x.arc(c + Math.cos(a) * R * .955, c + Math.sin(a) * R * .955, S * .006, 0, Math.PI * 2); x.fillStyle = '#FFFFFF'; x.fill(); }
     }
   }
-  x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.lineWidth = S * .02; x.strokeStyle = '#FF007F'; x.stroke();
-  x.beginPath(); x.arc(c, c, R + S * .016, 0, Math.PI * 2); x.lineWidth = S * .008; x.strokeStyle = '#FFC2DC'; x.stroke();
+  // textos
+  x.textAlign = 'right'; x.textBaseline = 'middle';
+  x.font = `800 ${fs}px "M PLUS Rounded 1c", system-ui, sans-serif`;
+  for(let i = 0; i < n; i++){
+    const a = -Math.PI / 2 + i * seg, claro = col[i] === 1;
+    x.save();
+    x.translate(c, c); x.rotate(a + seg / 2);
+    x.shadowColor = claro ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; x.shadowBlur = S * .006; x.shadowOffsetY = claro ? 0 : S * .002;
+    x.fillStyle = pal[col[i]][2];
+    // texto largo: primero se achica (hasta 60 %) y solo si aún no cabe se recorta con "…"
+    const t = String(ops[i]), maxW = R * .68, w = x.measureText(t).width;
+    if(w > maxW) x.font = `800 ${Math.max(fs * .6, fs * maxW / w)}px "M PLUS Rounded 1c", system-ui, sans-serif`;
+    x.fillText(recortar(x, t, maxW), R * .88, 0);
+    if(w > maxW) x.font = `800 ${fs}px "M PLUS Rounded 1c", system-ui, sans-serif`;
+    x.restore();
+  }
+}
+// Aro fijo con focos. Los focos van en dos capas (pares e impares) que se alternan con CSS al girar.
+function dibujarAro(cvAro, cvA, cvB, tam){
+  const S = ladoCanvas(tam), c = S / 2, R = c * R_RUEDA, Ro = c * R_ARO;
+  const x = lienzo(cvAro, S), xa = lienzo(cvA, S), xb = lienzo(cvB, S);
+  const g = x.createRadialGradient(c, c, R, c, c, Ro);
+  g.addColorStop(0, '#12060C'); g.addColorStop(.5, '#3A0B22'); g.addColorStop(1, '#16070F');
+  x.beginPath(); x.arc(c, c, Ro, 0, Math.PI * 2); x.arc(c, c, R, 0, Math.PI * 2, true); x.fillStyle = g; x.fill('evenodd');
+  x.lineWidth = S * .007; x.strokeStyle = '#FF007F'; x.beginPath(); x.arc(c, c, R + x.lineWidth / 2, 0, Math.PI * 2); x.stroke();
+  x.lineWidth = S * .005; x.strokeStyle = '#FFC2DC'; x.beginPath(); x.arc(c, c, Ro - x.lineWidth / 2, 0, Math.PI * 2); x.stroke();
+  const nF = tam >= 600 ? 28 : 18, rf = (Ro + R) / 2, tf = (Ro - R) * .22;
+  for(let i = 0; i < nF; i++){
+    const a = -Math.PI / 2 + (i + .5) * Math.PI * 2 / nF, px = c + Math.cos(a) * rf, py = c + Math.sin(a) * rf;
+    x.beginPath(); x.arc(px, py, tf, 0, Math.PI * 2); x.fillStyle = '#5E1E40'; x.fill();
+    const xl = i % 2 ? xb : xa;
+    const gl = xl.createRadialGradient(px, py, 0, px, py, tf * 2.6);
+    gl.addColorStop(0, '#FFFFFF'); gl.addColorStop(.32, '#FFC2DC'); gl.addColorStop(.45, 'rgba(255,0,127,.75)'); gl.addColorStop(1, 'rgba(255,0,127,0)');
+    xl.beginPath(); xl.arc(px, py, tf * 2.6, 0, Math.PI * 2); xl.fillStyle = gl; xl.fill();
+  }
+}
+// Oscurece todo menos la casilla de arriba (la del ganador siempre queda bajo el puntero)
+function dibujarFoco(cv, tam, n){
+  const S = ladoCanvas(tam), x = lienzo(cv, S), c = S / 2, R = c * R_RUEDA;
+  if(n < 2) return;
+  const seg = Math.PI * 2 / n;
+  x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.fillStyle = 'rgba(8,3,6,.55)'; x.fill();
+  x.globalCompositeOperation = 'destination-out';
+  x.beginPath(); x.moveTo(c, c); x.arc(c, c, R, -Math.PI / 2 - seg / 2, -Math.PI / 2 + seg / 2); x.closePath(); x.fill();
+  x.globalCompositeOperation = 'source-over';
 }
 function crearRuleta(c){
   c.innerHTML = `<div class="ruleta">
     <canvas class="rueda"></canvas>
-    <svg class="puntero" viewBox="0 0 60 70" aria-hidden="true"><path d="M30 64 L7 12 Q30 2 53 12 Z" fill="#FF007F" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round"/></svg>
+    <canvas class="foco"></canvas>
+    <div class="capa brillo"></div>
+    <canvas class="aro-c"></canvas>
+    <canvas class="focos focos-a"></canvas>
+    <canvas class="focos focos-b"></canvas>
     <div class="aro"></div>
-    <div class="puntero-img"></div>
+    <div class="punta">
+      <svg class="puntero" viewBox="0 0 60 78" aria-hidden="true">
+        <defs><linearGradient id="gPunt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF5AAE"/><stop offset="1" stop-color="#C2005C"/></linearGradient></defs>
+        <path d="M30 74 L8 22 A23 23 0 1 1 52 22 Z" fill="url(#gPunt)" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round"/>
+        <circle cx="30" cy="25" r="9" fill="#140810" stroke="#FFC2DC" stroke-width="3"/>
+        <path d="M17 16 Q24 8 33 8" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div class="puntero-img"></div>
+    </div>
     <div class="eje"></div>
-    <div class="ganador"><span>Ganador</span><strong></strong></div>
+    <div class="ganador"><span>GANADOR</span><strong></strong></div>
   </div>`;
-  c._ruleta = { canvas:c.querySelector('canvas'), caja:c.querySelector('.ganador'), firma:'', clave:'', raf:0 };
+  const q = s => c.querySelector(s);
+  c._ruleta = { raiz:q('.ruleta'), canvas:q('.rueda'), foco:q('.foco'), aro:q('.aro-c'), fa:q('.focos-a'), fb:q('.focos-b'),
+                punta:q('.punta'), caja:q('.ganador'), firma:'', firmaAro:'', clave:'', raf:0 };
 }
 function actualizarRuleta(c, e){
   const r = c._ruleta, d = e.datos || {};
   const ops = Array.isArray(d.opciones) ? d.opciones : Object.values(d.opciones || {});
   const firma = ops.join('\u0001') + '|' + e.w + '|' + fuentesListas + '|' + (e.estilo || '');
-  if(firma !== r.firma){ r.firma = firma; dibujarRueda(r.canvas, ops, e.w, e.estilo); }
+  if(firma !== r.firma){ r.firma = firma; dibujarRueda(r.canvas, ops, e.w, e.estilo); dibujarFoco(r.foco, e.w, ops.length); }
+  const firmaAro = String(e.w);
+  if(firmaAro !== r.firmaAro){ r.firmaAro = firmaAro; dibujarAro(r.aro, r.fa, r.fb, e.w); }
+  r.caja.querySelector('span').textContent = e.estilo === 'rosa' ? 'RESULTADO' : 'GANADOR';
   const g = d.giro;
   const clave = g ? `g:${g.inicio}:${g.hasta}` : `q:${d.angulo || 0}`;
   if(clave === r.clave) return;
   r.clave = clave;
   cancelAnimationFrame(r.raf);
+  r.raiz.classList.remove('gano');
   if(!g){
-    r.caja.classList.remove('ver');
+    r.caja.classList.remove('ver'); r.raiz.classList.remove('girando');
     r.canvas.style.transform = `rotate(${d.angulo || 0}deg)`;
     return;
   }
-  r.caja.querySelector('strong').textContent = g.nombre || '';
+  const nombre = String(g.nombre || '');
+  r.caja.querySelector('strong').textContent = nombre;
+  r.caja.classList.toggle('corta', nombre.length <= 8);
   r.caja.classList.remove('ver');
-  let ultimo = '';
+  const n = Math.max(1, ops.length), segDeg = 360 / n;
+  let ultimo = '', casilla = -1, golpe = 0;
   const paso = () => {
     const p = Math.min(1, Math.max(0, (ahora() - g.inicio) / g.duracion));
-    const ang = (g.desde + (g.hasta - g.desde) * (1 - Math.pow(1 - p, 4))).toFixed(2);
-    if(ang !== ultimo){ ultimo = ang; r.canvas.style.transform = `rotate(${ang}deg)`; }
-    if(p < 1) r.raf = requestAnimationFrame(paso);
-    else r.caja.classList.add('ver');
+    const angN = g.desde + (g.hasta - g.desde) * (1 - Math.pow(1 - p, 4)), ang = angN.toFixed(2);
+    if(ang !== ultimo){
+      ultimo = ang; r.canvas.style.transform = `rotate(${ang}deg)`;
+      // el puntero "golpea" cada vez que pasa una casilla (solo si va lo bastante lento para notarse)
+      const k = Math.floor((((-angN) % 360) + 360) % 360 / segDeg);
+      if(k !== casilla){
+        const t = performance.now();
+        if(casilla !== -1 && t - golpe > 90 && r.punta.animate){ golpe = t; r.punta.animate([{ transform:'rotate(-14deg)' }, { transform:'rotate(0deg)' }], { duration:140, easing:'ease-out' }); }
+        casilla = k;
+      }
+    }
+    if(p < 1){ r.raiz.classList.add('girando'); r.raf = requestAnimationFrame(paso); }
+    else { r.raiz.classList.remove('girando'); r.raiz.classList.add('gano'); r.caja.classList.add('ver'); }
   };
   paso();
 }
