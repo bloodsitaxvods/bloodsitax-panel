@@ -452,6 +452,9 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 /* segunda imagen: al adivinar reemplaza a la primera con un pop */
 .dimg.dos.lista2 .dimg-foto .i1{opacity:0;transform:scale(.8)}
 .dimg.dos.lista2 .dimg-foto .i2{opacity:1;transform:scale(1)}
+/* durante el 3, 2, 1 la imagen espera escondida; aparece en el YA */
+.dimg.espera .dimg-foto img{opacity:0 !important;transform:scale(.8) !important}
+.dimg .dib-cuenta{z-index:2}
 /* Mensaje de texto libre */
 .txt{position:relative;width:100%;height:100%;display:flex;align-items:center;box-sizing:border-box;overflow:hidden}
 .txt div{width:100%;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.15;paint-order:stroke fill}
@@ -722,7 +725,8 @@ function actualizarDibujo(c, e){
     const primera = r.ronda === null;
     dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.cola = []; dibOcultarCartel(r); r.num.classList.remove('ver');
     r.ronda = d.ronda; r.vistos = 0; r.rev = 0; r.oc = d.oc || 0;
-    if(ahora() < (d.inicio || 0) + DIB_CUENTA.length * 1000) dibCuenta(r, d.inicio || ahora());
+    // en la ronda con imagen la cuenta sale sobre la imagen, no aquí
+    if(!d.sinCuenta && ahora() < (d.inicio || 0) + DIB_CUENTA.length * 1000) dibCuenta(r, d.inicio || ahora());
     // overlay recién abierto con la ronda ya avanzada: solo se repite el último cartel si sigue vigente
     if(primera && aciertos.length){
       const ult = aciertos[aciertos.length - 1];
@@ -745,8 +749,9 @@ function actualizarDibujo(c, e){
 // datos: { titulo, img, img2, rev }. img se muestra; con rev = true cambia a img2 (si existe).
 // Las dos se cargan bajo demanda, como las del Random.
 function crearDibImg(c){
-  c.innerHTML = '<div class="dimg"><div class="dimg-tit"></div><div class="dimg-foto"><img class="i1" alt=""><img class="i2" alt=""></div></div>';
-  c._dimg = { caja:c.firstChild, tit:c.querySelector('.dimg-tit'), i1:c.querySelector('.i1'), i2:c.querySelector('.i2'), c1:null, c2:null };
+  c.innerHTML = '<div class="dimg"><div class="dimg-tit"></div><div class="dimg-foto"><img class="i1" alt=""><img class="i2" alt=""></div><div class="dib-cuenta"><span></span></div></div>';
+  c._dimg = { caja:c.firstChild, tit:c.querySelector('.dimg-tit'), i1:c.querySelector('.i1'), i2:c.querySelector('.i2'), num:c.querySelector('.dib-cuenta span'),
+              c1:null, c2:null, inicio:null, timers:[], tcuenta:[] };
 }
 function dimgCargar(r, el, k, clase, id){
   if(!id){ r[k] = null; el.removeAttribute('src'); r.caja.classList.remove(clase); return; }
@@ -768,6 +773,18 @@ function actualizarDibImg(c, e){
   dimgCargar(r, r.i1, 'c1', 'lista', d.img);
   dimgCargar(r, r.i2, 'c2', 'lista2', d.img2);
   r.caja.classList.toggle('dos', !!(d.rev && d.img2));
+  // ronda con imagen: misma cuenta que el juego de dibujo; la imagen aparece en el YA
+  const ini = d.inicio || 0;
+  if(ini !== r.inicio){
+    r.inicio = ini;
+    dibLimpiar(r, 'tcuenta'); dibLimpiar(r); r.num.classList.remove('ver');
+    const ya = ini + (DIB_CUENTA.length - 1) * 1000;
+    if(ini && ahora() < ya){
+      r.caja.classList.add('espera');
+      dibCuenta(r, ini);
+      dibTimer(r, () => r.caja.classList.remove('espera'), ya - ahora());
+    } else r.caja.classList.remove('espera');
+  }
 }
 
 /* ---------- Mensaje de texto ---------- */
@@ -1443,7 +1460,7 @@ const TIPOS = {
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
   dibujo: { crear: crearDibujo, actualizar: actualizarDibujo },
-  dibimg: { crear: crearDibImg, actualizar: actualizarDibImg, liberar(c){ const r = c._dimg; r.c1 = r.c2 = null; r.i1.removeAttribute('src'); r.i2.removeAttribute('src'); r.caja.classList.remove('lista', 'lista2'); } },
+  dibimg: { crear: crearDibImg, actualizar: actualizarDibImg, liberar(c){ const r = c._dimg; r.c1 = r.c2 = null; r.inicio = null; dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.caja.classList.remove('espera'); r.i1.removeAttribute('src'); r.i2.removeAttribute('src'); r.caja.classList.remove('lista', 'lista2'); } },
   texto: { crear: crearTexto, actualizar: actualizarTexto },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
@@ -1459,6 +1476,7 @@ function detener(n){
   const c = n.firstChild; if(!c) return;
   if(c._ruleta) cancelAnimationFrame(c._ruleta.raf);
   if(c._dib){ dibLimpiar(c._dib); dibLimpiar(c._dib, 'tcuenta'); }
+  if(c._dimg){ dibLimpiar(c._dimg); dibLimpiar(c._dimg, 'tcuenta'); }
   if(c._tirada){ c._tirada.token++; c._tirada.timers.forEach(clearTimeout); }
 }
 // Campos que solo mueven el elemento: si solo cambia uno de estos, no se vuelve a dibujar el contenido

@@ -38,7 +38,7 @@ a{color:var(--rosa)}
 .conexion + .conexion{margin-left:0}
 .chat-barra .punto{width:12px;height:12px}
 /* Palabras del dibujo tapadas mientras no le des a Ver */
-.tapado{-webkit-text-security:disc;text-security:disc}
+
 
 /* Botones */
 .btn{background:var(--sup2);border:1px solid var(--linea);border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer}
@@ -179,6 +179,9 @@ a{color:var(--rosa)}
 .dimg-mini.activo{border-color:var(--neon);box-shadow:0 0 12px rgba(255,0,127,.55)}
 .dimg-nuevo{display:flex;align-items:center;justify-content:center;min-height:72px;border-radius:10px;border:2px dashed var(--linea);background:transparent;color:var(--tenue);font-weight:800;cursor:pointer}
 .dimg-nuevo:hover{border-color:var(--neon);color:#fff}
+.dimg-resp{min-height:92px}
+.dimg-cuenta{grid-column:1 / -1;font-size:11px;text-align:center;color:var(--tenue);padding-top:2px}
+.dimg-cuenta.falta{color:#FFB020}
 .dimg-del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:none;background:#2a1520;color:#fff;font-weight:800;cursor:pointer;line-height:1}
 .dimg-del:hover{background:var(--neon)}
 .modo-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px;border-radius:10px;cursor:pointer;
@@ -752,9 +755,9 @@ function tarjeta(id){
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'dibujo'){
     cuerpo = `<div class="chat-barra"><span class="punto" data-chat-luz></span><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
-      <textarea class="lista tapado" data-dib-palabras autocomplete="off" spellcheck="false" aria-label="Respuestas válidas"
+      <textarea class="lista" data-dib-palabras autocomplete="off" spellcheck="false" aria-label="Respuestas válidas"
         placeholder="Una respuesta válida por línea, por ejemplo:&#10;casa&#10;la casa&#10;mansion"></textarea>
-      <div class="lista-info"><span data-dib-conteo>0 respuestas</span><button class="btn" data-act="dver">Ver</button></div>
+      <div class="lista-info"><span data-dib-conteo>0 respuestas</span></div>
       <p class="nota">Cada línea es una respuesta que gana, escrita tal cual (con sus espacios). No importan mayúsculas, acentos ni signos, y cuenta aunque venga dentro de una frase ("creo que es la casa"). El primero que diga cualquiera gana. Las respuestas se quedan solo en este navegador: no se suben a Firebase.</p>
       <div class="opciones">
         <label class="opcion">Cartel en pantalla <select data-opc="cartel">${DIB_CARTELES.map(n => `<option value="${n}">${n ? n + ' s' : 'Hasta ocultarlo'}</option>`).join('')}</select></label>
@@ -787,16 +790,20 @@ function tarjeta(id){
           <button class="btn" data-dimg-quitar="b">Quitar</button>
         </div>
       </div>
+      <span class="dimg-slot-tit">Respuestas de esta imagen</span>
+      <textarea class="lista dimg-resp" data-dimg-resp autocomplete="off" spellcheck="false" aria-label="Respuestas de esta imagen"
+        placeholder="Una respuesta válida por línea, por ejemplo:&#10;hulk&#10;el hulk&#10;bruce banner"></textarea>
+      <div class="lista-info"><span data-dimg-conteo>0 respuestas</span></div>
       <label class="opcion"><input type="checkbox" data-opc-check="auto"> Cambiar a la segunda imagen sola cuando alguien adivine</label>
       <div class="acciones">
-        <button class="btn principal grande" data-act="dimgver">Mostrar</button>
+        <button class="btn principal grande" data-act="dimgver">Mostrar (3, 2, 1, YA)</button>
         <button class="btn grande" data-act="dimgdos">Mostrar segunda imagen</button>
         <button class="btn" data-act="ocultar">Ocultar</button>
       </div>
       <p class="nota" data-dimg-estado></p>
       <div class="dimg-sub">Otras imágenes de la misma temática</div>
       <div class="dimg-pares" data-dimg-pares></div>
-      <p class="nota">Toca un par para usarlo en la siguiente ronda; si ya está en pantalla, cambia al instante.</p>`;
+      <p class="nota">Toca un par para prepararlo (sus imágenes y sus respuestas). Mostrar hace la cuenta 3, 2, 1, YA sobre la imagen; en el YA aparece la primera imagen y desde ahí cuenta quién adivina.</p>`;
   } else if(e.tipo === 'texto'){
     cuerpo = `<textarea class="lista" data-txt maxlength="500" placeholder="Escribe tu mensaje. Con Enter haces otra línea." aria-label="Mensaje"></textarea>
       <div class="txt-prev" data-txt-prev></div>
@@ -1987,7 +1994,28 @@ const imagenesDibujo = () => Object.entries(imagenes).filter(([, im]) => im && i
 const DImg = {
   migrado:false,
   datos(){ return (estado[DIMG_ID] && estado[DIMG_ID].datos) || {}; },
-  pares(){ return lista(this.datos().pares).map(p => ({ a:(p && p.a) || '', b:(p && p.b) || '' })); },
+  pares(){ return lista(this.datos().pares).map(p => ({ a:(p && p.a) || '', b:(p && p.b) || '', r:(p && p.r) || '' })); },
+  // Respuestas del par elegido (se guardan en Firebase con el par)
+  guardarRespuestas(texto){
+    let pares = this.pares(), sel = Number(this.datos().sel) || 0;
+    if(!pares.length){ pares = [{ a:'', b:'', r:'' }]; sel = 0; }
+    if(pares[sel].r === texto) return;
+    pares[sel] = { ...pares[sel], r:String(texto).slice(0, 2000) };
+    this.guardar(pares, sel);
+  },
+  // Mostrar: cuenta 3, 2, 1, YA sobre la imagen; en el YA aparece la primera imagen y empieza a contar
+  ronda(){
+    const ta = document.querySelector(`.tarjeta[data-el="${DIMG_ID}"] [data-dimg-resp]`);
+    if(ta && ta._t){ clearTimeout(ta._t); ta._t = 0; this.guardarRespuestas(ta.value); }
+    const d = this.datos(), pares = this.pares(), p = pares[Number(d.sel) || 0];
+    if(!d.img) return toast('Primero sube la imagen de la izquierda');
+    const palabras = leerPalabras(p ? p.r : '');
+    if(!palabras.length){ toast('Escribe las respuestas de esta imagen'); if(ta) ta.focus(); return; }
+    this.cartelEncima();
+    const inicio = Dib.empezar(palabras, '', true);
+    if(!inicio) return;
+    update(DIMG_ID, { visible:true, datos:{ ...this.datos(), rev:false, inicio } });
+  },
   // guarda pares y deja img/img2 apuntando al par elegido
   guardar(pares, sel, extra = {}){
     sel = Math.max(0, Math.min(sel, pares.length - 1));
@@ -2019,7 +2047,7 @@ const DImg = {
       imagenes[id] = { nombre:f.name.replace(/\.[^.]+$/, '').slice(0, 40), src:r.src, ancho:r.ancho, alto:r.alto, origen:'dibujo', creado:Date.now() };
       await Sync.escribir({ [`imagenes/${id}`]:imagenes[id] });
       let pares = this.pares(), sel = Number(this.datos().sel) || 0;
-      if(!pares.length){ pares = [{ a:'', b:'' }]; sel = 0; }
+      if(!pares.length){ pares = [{ a:'', b:'', r:'' }]; sel = 0; }
       const viejo = pares[sel][k];
       pares[sel] = { ...pares[sel], [k]:id };
       this.guardar(pares, sel);
@@ -2039,13 +2067,14 @@ const DImg = {
   elegir(i){ const pares = this.pares(); if(pares[i]) this.guardar(pares, i, { rev:false }); },
   nuevo(){
     const pares = this.pares();
-    if(pares.length && !pares[pares.length - 1].a && !pares[pares.length - 1].b) return this.elegir(pares.length - 1);
-    pares.push({ a:'', b:'' });
+    const ult = pares[pares.length - 1];
+    if(ult && !ult.a && !ult.b && !ult.r) return this.elegir(pares.length - 1);
+    pares.push({ a:'', b:'', r:'' });
     this.guardar(pares, pares.length - 1, { rev:false });
   },
   borrarPar(i){
     const pares = this.pares(); if(!pares[i]) return;
-    if((pares[i].a || pares[i].b) && !confirm('¿Borrar este par de imágenes?')) return;
+    if((pares[i].a || pares[i].b || pares[i].r) && !confirm('¿Borrar este par de imágenes y sus respuestas?')) return;
     const [quitado] = pares.splice(i, 1);
     let sel = Number(this.datos().sel) || 0;
     if(i < sel || sel >= pares.length) sel = Math.max(0, sel - 1);
@@ -2064,8 +2093,6 @@ const DImg = {
     const cDib = (estado[DIB_ID] && estado[DIB_ID].capa) || 1, cImg = (estado[DIMG_ID] && estado[DIMG_ID].capa) || 1;
     if(cDib <= cImg) update(DIB_ID, { capa:Math.min(50, cImg + 1) });
   },
-  // Ronda nueva: vuelve a la primera imagen
-  volverPrimera(){ this.cartelEncima(); const d = this.datos(); if(d.rev) update(DIMG_ID, { datos:{ ...d, rev:false } }); },
   // Alguien adivinó o se reveló la palabra: cambia a la segunda (si está activado y la imagen está en pantalla)
   alAdivinar(){
     const e = estado[DIMG_ID]; if(!e) return;
@@ -2075,7 +2102,7 @@ const DImg = {
 };
 function pintarDibImg(t, e){
   DImg.migrar();
-  const d = e.datos || {}, o = e.opc || {}, pares = DImg.pares(), sel = Number(d.sel) || 0, p = pares[sel] || { a:'', b:'' };
+  const d = e.datos || {}, o = e.opc || {}, pares = DImg.pares(), sel = Number(d.sel) || 0, p = pares[sel] || { a:'', b:'', r:'' };
   // las dos casillas del par elegido
   ['a', 'b'].forEach(k => {
     const area = t.querySelector(`[data-slot-area="${k}"]`), img = area.querySelector('img'), id = p[k], im = id && imagenes[id];
@@ -2090,16 +2117,21 @@ function pintarDibImg(t, e){
   // pares de la misma temática
   const cont = t.querySelector('[data-dimg-pares]');
   const mini = id => { const im = id && imagenes[id]; return `<span>${im ? `<img src="${esc(im.src)}" alt="" loading="lazy">` : 'vacía'}</span>`; };
-  const firma = pares.map(x => x.a + ':' + x.b + ':' + !!imagenes[x.a] + !!imagenes[x.b]).join(',') + '|' + sel;
+  const nResp = x => leerPalabras(x.r).length;
+  const firma = pares.map(x => x.a + ':' + x.b + ':' + !!imagenes[x.a] + !!imagenes[x.b] + ':' + nResp(x)).join(',') + '|' + sel;
   if(cont._firma !== firma){
     cont._firma = firma;
     cont.innerHTML = pares.map((x, i) => `<div class="dimg-item">
-        <button class="dimg-mini ${i === sel ? 'activo' : ''}" data-dimg-par="${i}" title="Usar este par">${mini(x.a)}${mini(x.b)}</button>
+        <button class="dimg-mini ${i === sel ? 'activo' : ''}" data-dimg-par="${i}" title="Usar este par">${mini(x.a)}${mini(x.b)}<em class="dimg-cuenta ${nResp(x) ? '' : 'falta'}">${nResp(x) ? nResp(x) + (nResp(x) === 1 ? ' respuesta' : ' respuestas') : 'Sin respuestas'}</em></button>
         <button class="dimg-del" data-dimg-pardel="${i}" title="Borrar par" aria-label="Borrar par">x</button></div>`).join('')
       + '<button class="dimg-nuevo" data-dimg-nuevo>+ Nuevo par</button>';
   }
   const tit = t.querySelector('[data-dimg-titulo]');
   if(tit !== document.activeElement && !tit._t) tit.value = d.titulo || '';
+  const resp = t.querySelector('[data-dimg-resp]');
+  if(resp !== document.activeElement && !resp._t) resp.value = p.r || '';
+  const nr = leerPalabras(resp.value).length;
+  t.querySelector('[data-dimg-conteo]').textContent = `${nr} ${nr === 1 ? 'respuesta' : 'respuestas'}`;
   t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = o[c.dataset.opcCheck] !== false; });
   t.querySelector('[data-act="dimgver"]').disabled = !d.img;
   const b2 = t.querySelector('[data-act="dimgdos"]');
@@ -2155,14 +2187,13 @@ function leerPalabras(txt){
   }
   return out;
 }
-const enmascarar = w => Array.from(w).map((ch, i) => i === 0 || ch === ' ' ? ch : '•').join('');
 function relojDib(ms){ const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 const Dib = {
   local:{ ronda:'', palabras:[], texto:'' }, activo:false, reloj:0, ver:false,
   cargar(){
     try{
       const v = JSON.parse(leerLS('bsx-dib-' + sala) || 'null');
-      if(v) this.local = { ronda:v.ronda || '', palabras:lista(v.palabras), texto:v.texto || '' };
+      if(v) this.local = { ronda:v.ronda || '', palabras:lista(v.palabras), texto:v.texto || '', img:!!v.img };
     }catch{}
   },
   guardar(){ guardarLS('bsx-dib-' + sala, JSON.stringify(this.local)); },
@@ -2181,15 +2212,21 @@ const Dib = {
     const texto = t ? t.querySelector('[data-dib-palabras]').value : this.local.texto;
     const palabras = leerPalabras(texto);
     if(!palabras.length){ toast('Escribe al menos una respuesta'); if(t) t.querySelector('[data-dib-palabras]').focus(); return; }
+    this.empezar(palabras, texto, false);
+  },
+  // Arranca una ronda con estas respuestas. conImagen: la cuenta 3, 2, 1, YA sale sobre la imagen
+  // (no en el cuadro del cartel) y la lista de palabras de la tarjeta no se toca.
+  // Devuelve la hora del servidor en que empieza la cuenta, o 0 si se canceló.
+  empezar(palabras, texto, conImagen){
     const d = this.datos();
-    if(d.fase === 'dibujando' && !confirm('Hay una ronda en curso. ¿Empezar una nueva?')) return;
+    if(d.fase === 'dibujando' && !confirm('Hay una ronda en curso. ¿Empezar una nueva?')) return 0;
     if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
-    const ronda = idAleatorio(8);
-    this.local = { ronda, palabras, texto };
+    const ronda = idAleatorio(8), inicio = ahora() + 600;
+    this.local = { ronda, palabras, texto: conImagen ? this.local.texto : texto, img:!!conImagen };
     this.guardar();
     this.activo = true; this.arrancarReloj();
-    update(DIB_ID, { visible:true, datos:{ t:Date.now(), ronda, fase:'dibujando', inicio:ahora() + 600, total:palabras.length, hechas:0, aciertos:[] } });
-    DImg.volverPrimera();
+    update(DIB_ID, { visible:true, datos:{ t:Date.now(), ronda, fase:'dibujando', inicio, sinCuenta:!!conImagen, total:palabras.length, hechas:0, aciertos:[] } });
+    return inicio;
   },
   // Revisa un mensaje del chat. Devuelve la palabra adivinada o null.
   revisar(tags, login, msg){
@@ -2237,18 +2274,16 @@ function pintarDibujo(t, e){
   const d = e.datos || {}, o = e.opc || {};
   const enCurso = d.fase === 'dibujando', mia = !!d.ronda && d.ronda === Dib.local.ronda;
   const inp = t.querySelector('[data-dib-palabras]');
-  inp.classList.toggle('tapado', !Dib.ver);
   if(inp !== document.activeElement) inp.value = Dib.local.texto;
   const nResp = leerPalabras(inp.value).length;
   t.querySelector('[data-dib-conteo]').textContent = `${nResp} ${nResp === 1 ? 'respuesta' : 'respuestas'}`;
-  t.querySelector('[data-act="dver"]').textContent = Dib.ver ? 'Ocultar' : 'Ver';
   t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String(o[sel.dataset.opc] ?? 8); });
   t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = !!o[c.dataset.opcCheck]; });
 
   // Palabras de la ronda (tapadas salvo que le des a Ver)
   const filas = t.querySelector('[data-dib-filas]');
   const pals = mia ? Dib.local.palabras : [];
-  const html = pals.map((p, i) => `<div class="res-fila vfila ${p.por ? 'gana' : ''}"><span class="vletra">${i + 1}</span><span class="res-nom">${esc(Dib.ver ? p.w : enmascarar(p.w))}</span><span class="vconteo">${p.por ? 'Adivinó ' + esc(p.por) : ''}</span></div>`).join('');
+  const html = pals.map((p, i) => `<div class="res-fila vfila ${p.por ? 'gana' : ''}"><span class="vletra">${i + 1}</span><span class="res-nom">${esc(p.w)}</span><span class="vconteo">${p.por ? 'Adivinó ' + esc(p.por) : ''}</span></div>`).join('');
   if(filas._html !== html){ filas._html = html; filas.innerHTML = html; }
 
   let txt;
@@ -2997,17 +3032,11 @@ function accion(id, act){
     case 'ereiniciar': return Enc.reiniciar();
     case 'pfsig': return PF.siguiente();
     case 'dini': return Dib.iniciar();
-    case 'dimgver': {
-      const d = estado[DIMG_ID].datos || {};
-      if(!d.img) return toast('Primero sube la imagen de la izquierda');
-      DImg.cartelEncima();
-      return update(DIMG_ID, { visible:true, datos:{ ...d, rev:false } });
-    }
+    case 'dimgver': return DImg.ronda();
     case 'dimgdos': return DImg.alternar();
     case 'drev': return Dib.revelar();
     case 'dfin': return Dib.terminar();
     case 'doc': return Dib.quitarCartel();
-    case 'dver': Dib.ver = !Dib.ver; return pintarTarjeta(DIB_ID);
     case 'pfini': return PF.iniciar();
     case 'pfdet': return PF.cerrar();
     case 'pfhist': return PF.borrarHistorial();
@@ -3217,6 +3246,13 @@ function eventos(){
       ta.closest('.tarjeta').querySelector('[data-conteo]').textContent = textoConteo(ops.length);
       clearTimeout(ta._t);
       ta._t = setTimeout(() => { ta._t = 0; cambiarLista(id, leerLista(ta.value)); }, 350);
+      return;
+    }
+    if(ev.target.matches('[data-dimg-resp]')){
+      const ta = ev.target, n = leerPalabras(ta.value).length;
+      ta.closest('.tarjeta').querySelector('[data-dimg-conteo]').textContent = `${n} ${n === 1 ? 'respuesta' : 'respuestas'}`;
+      clearTimeout(ta._t);
+      ta._t = setTimeout(() => { ta._t = 0; DImg.guardarRespuestas(ta.value); }, 400);
       return;
     }
     if(ev.target.matches('[data-dimg-titulo]')){
