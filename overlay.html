@@ -752,11 +752,15 @@ function dimgCargar(r, el, k, clase, id){
   if(!id){ r[k] = null; el.removeAttribute('src'); r.caja.classList.remove(clase); return; }
   if(id === r[k] && el.getAttribute('src')) return;
   r[k] = id; r.caja.classList.remove(clase);
-  srcRandom(id).then(src => {
-    if(!src || r[k] !== id) return;
+  let intentos = 0;
+  const pedir = () => srcRandom(id).then(src => {
+    if(r[k] !== id) return;
+    // si la imagen aún no estaba en Firebase, se reintenta unas veces
+    if(!src){ if(++intentos < 5) setTimeout(pedir, 1500); return; }
     el.onload = () => { if(r[k] === id) r.caja.classList.add(clase); };
     el.src = src;
   });
+  pedir();
 }
 function actualizarDibImg(c, e){
   const r = c._dimg, d = e.datos || {};
@@ -814,6 +818,8 @@ function enCache(k, crear){
   if(cache.has(k)){ const v = cache.get(k); cache.delete(k); cache.set(k, v); return v; }
   const v = crear().catch(() => null);
   cache.set(k, v);
+  // una imagen que no llegó (todavía no estaba guardada o falló la red) no se queda en caché: se vuelve a pedir
+  v.then(x => { if(x == null && cache.get(k) === v) cache.delete(k); });
   if(cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
   return v;
 }
