@@ -439,6 +439,18 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .dib-msg .emote{height:1.25em;vertical-align:middle;margin:0 .08em}
 .dib-msg:empty{display:none}
 @media (prefers-reduced-motion:reduce){.dib-cuenta span.ver{animation:none}.dib-cartel{transition:none}}
+/* Imagen a adivinar (siluetas): en negro hasta que adivinan, luego se revela en color */
+.dimg{position:relative;width:100%;height:100%}
+.dimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:1;transform:scale(1);
+  transition:filter .9s ease, opacity .35s ease, transform .55s cubic-bezier(.2,1.5,.4,1)}
+.dimg:not(.lista) img,.dimg.espera img{opacity:0;transform:scale(.8)}
+.dimg.sil img{filter:brightness(0) drop-shadow(0 0 calc(var(--u)*16px) rgba(255,0,127,.9))}
+/* Mensaje de texto libre */
+.txt{position:relative;width:100%;height:100%;display:flex;align-items:center;box-sizing:border-box;overflow:hidden}
+.txt div{width:100%;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.15;paint-order:stroke fill}
+.txt.f-oscuro,.txt.f-rosa{border-radius:28px;padding:18px 34px}
+.txt.f-oscuro{background:rgba(13,13,13,.9);border:5px solid #FF007F;box-shadow:inset 0 0 0 2px #FFC2DC, 0 0 30px rgba(255,0,127,.45)}
+.txt.f-rosa{background:rgba(255,0,127,.92);border:5px solid #FFC2DC;box-shadow:0 0 30px rgba(255,0,127,.5)}
 @media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
 </style>
 </head>
@@ -720,6 +732,69 @@ function actualizarDibujo(c, e){
     dibEncolar(r, { tit:'NADIE ADIVINÓ', nom:'Era: ' + lista(d.rev.w).join(', '), msg:'' }, dur);
   }
   if(d.oc && d.oc !== r.oc){ r.oc = d.oc; r.cola = []; dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.num.classList.remove('ver'); dibOcultarCartel(r); }
+}
+
+/* ---------- Imagen a adivinar (dibujo / siluetas) ---------- */
+// datos: { img, rev, desde }. opc.sil: se ve en negro hasta que rev = true. desde: hora del servidor
+// en que aparece (el "YA" de la ronda); si ya pasó, aparece de inmediato.
+function crearDibImg(c){ c.innerHTML = '<div class="dimg"><img alt=""></div>'; c._dimg = { caja:c.firstChild, img:c.querySelector('img'), cur:null, timer:0 }; }
+function actualizarDibImg(c, e){
+  const r = c._dimg, d = e.datos || {}, o = e.opc || {};
+  r.caja.classList.toggle('sil', o.sil !== false && !d.rev);
+  if(!d.img){ r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); return; }
+  if(d.img !== r.cur){
+    r.cur = d.img; r.caja.classList.remove('lista');
+    srcRandom(d.img).then(src => {
+      if(!src || r.cur !== d.img) return;
+      r.img.onload = () => { if(r.cur === d.img) r.caja.classList.add('lista'); };
+      r.img.src = src;
+    });
+  }
+  clearTimeout(r.timer);
+  const falta = (d.desde || 0) - ahora();
+  r.caja.classList.toggle('espera', falta > 0);
+  if(falta > 0) r.timer = setTimeout(() => r.caja.classList.remove('espera'), falta);
+}
+
+/* ---------- Mensaje de texto ---------- */
+// Fuentes de Google: solo se descarga la que se usa
+const FUENTES_TXT = {
+  'M PLUS Rounded 1c':'800', 'Fredoka':'700', 'Bebas Neue':'400', 'Bangers':'400', 'Permanent Marker':'400', 'Pacifico':'400',
+  'Lobster':'400', 'Creepster':'400', 'Nosifer':'400', 'Press Start 2P':'400', 'Righteous':'400', 'Caveat':'700'
+};
+const fuentesPedidas = new Set(['M PLUS Rounded 1c']);
+function pedirFuente(f){
+  if(fuentesPedidas.has(f) || !FUENTES_TXT[f]) return;
+  fuentesPedidas.add(f);
+  const l = document.createElement('link'); l.rel = 'stylesheet';
+  l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@${FUENTES_TXT[f]}&display=swap`;
+  document.head.append(l);
+}
+function crearTexto(c){ c.innerHTML = '<div class="txt"><div></div></div>'; }
+function actualizarTexto(c, e){
+  const caja = c.firstChild, t = caja.firstChild, o = e.opc || {};
+  const f = FUENTES_TXT[o.fuente] ? o.fuente : 'M PLUS Rounded 1c';
+  pedirFuente(f);
+  caja.className = 'txt' + (o.fondo === 'oscuro' ? ' f-oscuro' : o.fondo === 'rosa' ? ' f-rosa' : '');
+  const al = ['left', 'right'].includes(o.alinear) ? o.alinear : 'center';
+  const g = Math.max(0, Number(o.grosor ?? 6)), borde = o.borde || '#FF007F';
+  Object.assign(t.style, {
+    fontFamily:`"${f}", "M PLUS Rounded 1c", system-ui, sans-serif`, fontWeight:FUENTES_TXT[f],
+    color:o.color || '#FFFFFF', textAlign:al,
+    webkitTextStroke: g ? `${g * 2}px ${borde}` : '0',
+    textShadow: o.brillo !== false ? `0 0 .22em ${borde}, 0 0 .5em ${borde}` : 'none'
+  });
+  t.textContent = String((e.datos || {}).texto || '');
+  // achica la letra si el texto no cabe en el cuadro (solo cuando cambia algo, no en cada cuadro)
+  const ajustar = () => {
+    let tam = Math.max(8, Number(o.tam) || 96);
+    t.style.fontSize = tam + 'px';
+    for(let i = 0; i < 24 && (t.scrollHeight > caja.clientHeight + 1 || t.scrollWidth > caja.clientWidth + 1) && tam > 10; i++){
+      tam = Math.floor(tam * .92); t.style.fontSize = tam + 'px';
+    }
+  };
+  ajustar();
+  if(document.fonts && document.fonts.load) document.fonts.load(`${FUENTES_TXT[f]} 40px "${f}"`).then(ajustar).catch(() => {});
 }
 
 /* ---------- Imágenes bajo demanda ---------- */
@@ -1352,6 +1427,8 @@ const TIPOS = {
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
   dibujo: { crear: crearDibujo, actualizar: actualizarDibujo },
+  dibimg: { crear: crearDibImg, actualizar: actualizarDibImg, liberar(c){ const r = c._dimg; clearTimeout(r.timer); r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); } },
+  texto: { crear: crearTexto, actualizar: actualizarTexto },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
   votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
@@ -1366,6 +1443,7 @@ function detener(n){
   const c = n.firstChild; if(!c) return;
   if(c._ruleta) cancelAnimationFrame(c._ruleta.raf);
   if(c._dib){ dibLimpiar(c._dib); dibLimpiar(c._dib, 'tcuenta'); }
+  if(c._dimg) clearTimeout(c._dimg.timer);
   if(c._tirada){ c._tirada.token++; c._tirada.timers.forEach(clearTimeout); }
 }
 // Campos que solo mueven el elemento: si solo cambia uno de estos, no se vuelve a dibujar el contenido

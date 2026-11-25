@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Bebas+Neue&family=Bangers&family=Permanent+Marker&family=Pacifico&family=Lobster&family=Creepster&family=Nosifer&family=Press+Start+2P&family=Righteous&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{
   --negro:#0D0D0D; --sup:#161012; --sup2:#21181C; --linea:#36262D;
@@ -146,6 +147,25 @@ a{color:var(--rosa)}
 .modo-voto{margin:12px 0 4px;padding:12px;border:1px solid var(--linea);border-radius:12px;background:var(--sup2)}
 .modo-voto > span{display:block;font-size:13px;font-weight:700;color:var(--tenue);margin-bottom:8px}
 .modo-botones{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modo-botones.tres{grid-template-columns:1fr 1fr 1fr}
+/* Mensaje de texto */
+.opcion input[type=color]{width:44px;height:30px;padding:0;border:1px solid var(--linea);border-radius:8px;background:var(--negro);cursor:pointer}
+.opcion input[type=range]{accent-color:var(--neon);width:140px}
+.txt-prev{margin:10px 0;min-height:90px;max-height:220px;overflow:hidden;border-radius:12px;padding:14px 18px;
+  background:repeating-conic-gradient(#1a0f16 0% 25%, #120a10 0% 50%) 50% / 18px 18px;border:1px solid var(--linea);
+  white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.15;paint-order:stroke fill}
+.txt-prev.f-oscuro{background:rgba(13,13,13,.95);border:3px solid #FF007F}
+.txt-prev.f-rosa{background:#FF007F;border:3px solid #FFC2DC}
+/* Galería de imágenes del dibujo */
+.dimg-galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:10px 0}
+.dimg-item{position:relative}
+.dimg-mini{width:100%;aspect-ratio:1;display:block;padding:4px;border-radius:10px;border:2px solid var(--linea);background:repeating-conic-gradient(#1a0f16 0% 25%, #120a10 0% 50%) 50% / 14px 14px;cursor:pointer}
+.dimg-mini img{width:100%;height:100%;object-fit:contain;display:block}
+.dimg-mini.activo{border-color:var(--neon);box-shadow:0 0 12px rgba(255,0,127,.55)}
+.dimg-mini.silv img{filter:brightness(0)}
+.dimg-del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(13,13,13,.85);color:#fff;font-weight:800;cursor:pointer;line-height:1}
+.dimg-del:hover{background:var(--neon)}
+.dimg-nom{display:block;font-size:11px;color:var(--tenue);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
 .modo-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px;border-radius:10px;cursor:pointer;
   background:var(--negro);border:2px solid var(--linea);color:var(--tenue);font:inherit}
 .modo-btn b{font-size:15px}
@@ -372,7 +392,9 @@ const ELEMENTOS = {
   'chat-prefieres':      { nombre:'Chat de Qué prefieres', tipo:'chat', w:480, h:640, x:1650, y:560 },
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 },
   'lista-jugadores':     { nombre:'Lista para jugar',   tipo:'lista', w:480, h:640, x:300, y:540 },
-  'dibujo':              { nombre:'Dibuja y adivina',   tipo:'dibujo', w:1200, h:560, x:960, y:420 }
+  'dibujo':              { nombre:'Dibuja y adivina',   tipo:'dibujo', w:1200, h:560, x:960, y:420 },
+  'dibujo-imagen':       { nombre:'Imagen a adivinar',  tipo:'dibimg', w:640, h:640, x:960, y:560 },
+  'texto':               { nombre:'Mensaje',            tipo:'texto', w:1400, h:260, x:960, y:170 }
 };
 const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
 const PESTANAS = [
@@ -391,7 +413,8 @@ const PESTANAS = [
   { id:'lista', nombre:'Lista', elementos:['lista-jugadores'] },
   { id:'votaciones', nombre:'Votaciones', elementos:['encuesta','chat-encuesta'] },
   { id:'prefieres', nombre:'Qué prefieres', elementos:['prefieres','chat-prefieres'] },
-  { id:'dibujo', nombre:'Dibujo', elementos:['dibujo'] },
+  { id:'dibujo', nombre:'Dibujo', elementos:['dibujo','dibujo-imagen'] },
+  { id:'texto', nombre:'Texto', elementos:['texto'] },
   { id:'apariencia', nombre:'Apariencia', elementos:[], apariencia:true },
   { id:'catalogo', nombre:'Catálogo', elementos:[], catalogo:true }
 ];
@@ -450,6 +473,22 @@ function guardarLS(k,v){ try{ localStorage.setItem(k,v); return true; }catch{ re
 let desfaseServidor = 0;
 const ahora = () => Date.now() + desfaseServidor;
 
+// Mensaje de texto: fuentes disponibles y valores iniciales
+const FUENTES_TXT = {
+  'M PLUS Rounded 1c': { nom:'Redondeada (la de siempre)', w:800 },
+  'Fredoka':           { nom:'Fredoka (suave)', w:700 },
+  'Bebas Neue':        { nom:'Bebas Neue (alta)', w:400 },
+  'Bangers':           { nom:'Bangers (cómic)', w:400 },
+  'Permanent Marker':  { nom:'Marcador', w:400 },
+  'Pacifico':          { nom:'Pacifico (cursiva)', w:400 },
+  'Lobster':           { nom:'Lobster', w:400 },
+  'Creepster':         { nom:'Creepster (terror)', w:400 },
+  'Nosifer':           { nom:'Nosifer (sangre)', w:400 },
+  'Press Start 2P':    { nom:'Pixel', w:400 },
+  'Righteous':         { nom:'Righteous', w:400 },
+  'Caveat':            { nom:'Caveat (a mano)', w:700 }
+};
+const TXT_DEF = { fuente:'M PLUS Rounded 1c', tam:96, color:'#FFFFFF', borde:'#FF007F', grosor:6, brillo:true, alinear:'center', fondo:'no' };
 function porDefecto(id){
   const d = ELEMENTOS[id];
   const base = { nombre:d.nombre, tipo:d.tipo || 'prueba', w:d.w, h:d.h, x:d.x, y:d.y, escala:1, rot:0, opacidad:1, capa:1, visible:false, datos:null };
@@ -459,6 +498,8 @@ function porDefecto(id){
   if(d.tipo === 'encuesta') base.opc = { dur:30 };
   if(d.tipo === 'prefieres') base.opc = { dur:20, modo:'manual' };
   if(d.tipo === 'dibujo') base.opc = { cartel:8, mods:false };
+  if(d.tipo === 'dibimg') base.opc = { sil:true, conRonda:true };
+  if(d.tipo === 'texto'){ base.opc = { ...TXT_DEF }; base.datos = { texto:'' }; }
   return base;
 }
 const estado = {};
@@ -715,6 +756,43 @@ function tarjeta(id){
       <div class="vot-filas" data-dib-filas></div>
       <p class="vot-estado-panel" data-vot-estado></p>
       <div class="chat" data-chat></div>`;
+  } else if(e.tipo === 'dibimg'){
+    cuerpo = `<p class="nota">Sube una o varias imágenes, elige cuál va y activa la ronda arriba con tus respuestas. Para siluetas usa PNG con fondo transparente: así queda la figura en negro y se revela en color cuando adivinan.</p>
+      <div class="acciones"><label class="btn principal archivo">Subir imágenes<input type="file" multiple accept="image/*" data-dimg-subir></label><span class="nota" data-dimg-estado></span></div>
+      <div class="dimg-galeria" data-dimg-galeria></div>
+      <div class="opciones">
+        <label class="opcion"><input type="checkbox" data-opc-check="sil"> En negro (silueta) hasta que adivinen</label>
+        <label class="opcion"><input type="checkbox" data-opc-check="conRonda"> Que aparezca sola al decir YA</label>
+      </div>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="dimgver">Mostrar ahora</button>
+        <button class="btn grande" data-act="dimgrev">Revelar</button>
+        <button class="btn" data-act="ocultar">Ocultar</button>
+      </div>`;
+  } else if(e.tipo === 'texto'){
+    cuerpo = `<textarea class="lista" data-txt maxlength="500" placeholder="Escribe tu mensaje. Con Enter haces otra línea." aria-label="Mensaje"></textarea>
+      <div class="txt-prev" data-txt-prev></div>
+      <div class="opciones">
+        <label class="opcion">Fuente <select data-txto="fuente">${Object.entries(FUENTES_TXT).map(([f, v]) => `<option value="${f}" style="font-family:'${f}'">${v.nom}</option>`).join('')}</select></label>
+        <label class="opcion">Tamaño <input type="range" min="24" max="240" step="2" data-txto="tam"><b data-txt-tam></b></label>
+      </div>
+      <div class="opciones">
+        <label class="opcion">Color <input type="color" data-txto="color"></label>
+        <label class="opcion">Borde <input type="color" data-txto="borde"></label>
+        <label class="opcion">Grosor <select data-txto="grosor">${[0,2,4,6,8,10,14].map(n => `<option value="${n}">${n ? n + ' px' : 'Sin borde'}</option>`).join('')}</select></label>
+        <label class="opcion"><input type="checkbox" data-txto="brillo"> Brillo</label>
+        <label class="opcion">Fondo <select data-txto="fondo"><option value="no">Sin fondo</option><option value="oscuro">Tarjeta oscura</option><option value="rosa">Tarjeta rosa</option></select></label>
+      </div>
+      <div class="modo-botones tres">
+        <button class="modo-btn" data-txt-al="left"><b>Izquierda</b></button>
+        <button class="modo-btn" data-txt-al="center"><b>Centro</b></button>
+        <button class="modo-btn" data-txt-al="right"><b>Derecha</b></button>
+      </div>
+      <p class="nota">Si el texto no cabe en el cuadro, la letra se achica sola en el overlay. El tamaño del cuadro se cambia en el escenario o en Posición y tamaño.</p>
+      <div class="acciones">
+        <button class="btn principal grande" data-act="mostrar">Mostrar</button>
+        <button class="btn grande" data-act="ocultar">Ocultar</button>
+      </div>`;
   } else if(e.tipo === 'encuesta'){
     cuerpo = `<div class="chat-barra"><span class="punto" data-chat-luz></span><button class="btn" data-act="chat">Conectar chat</button><span class="chat-estado" data-chat-estado>Chat desconectado</span></div>
       <div class="form-fila"><input class="campo" data-enc-pregunta maxlength="120" placeholder="Pregunta (aparece en la píldora de arriba, junto al tiempo)"></div>
@@ -920,6 +998,8 @@ function pintarTarjeta(id){
   if(e.tipo === 'encuesta') pintarEncuesta(t, e);
   if(e.tipo === 'prefieres') pintarPrefieres(t, e);
   if(e.tipo === 'dibujo') pintarDibujo(t, e);
+  if(e.tipo === 'dibimg') pintarDibImg(t, e);
+  if(e.tipo === 'texto') pintarTexto(t, e);
   if(e.tipo === 'votacion'){
     t.querySelectorAll('[data-opc]').forEach(sel => { if(sel !== document.activeElement) sel.value = String((e.opc || {})[sel.dataset.opc] ?? ''); });
     pintarVotacion(t, e);
@@ -1031,7 +1111,7 @@ function pintar(id){ pintarTarjeta(id); pintarCaja(id); }
 function pintarTodo(){ for(const id in estado) pintarTarjeta(id); pintarCajas(); }
 
 let firmaRandom = null, rafRandom = 0;
-function pedirRandom(){ if(!rafRandom) rafRandom = requestAnimationFrame(() => { rafRandom = 0; pintarRandom(true); }); }
+function pedirRandom(){ if(!rafRandom) rafRandom = requestAnimationFrame(() => { rafRandom = 0; pintarRandom(true); pintarTarjeta(DIMG_ID); }); }
 function idsImagenes(){
   return Object.keys(estado).filter(id => estado[id].tipo === 'imagen')
     .sort((a, b) => (estado[a].creado || 0) - (estado[b].creado || 0));
@@ -1870,6 +1950,100 @@ function pintarPrefieres(t, e){
 }
 
 
+/* ---------- Imagen a adivinar (siluetas) ---------- */
+// Las imágenes se guardan con las del Random (imagenes/{id}, origen 'dibujo') pero no aparecen en esa pestaña.
+const DIMG_ID = 'dibujo-imagen';
+const imagenesDibujo = () => Object.entries(imagenes).filter(([, im]) => im && im.origen === 'dibujo').sort((a, b) => (a[1].creado || 0) - (b[1].creado || 0));
+const DImg = {
+  async subir(files){
+    const est = document.querySelector(`.tarjeta[data-el="${DIMG_ID}"] [data-dimg-estado]`);
+    let ok = 0, primera = null;
+    for(const f of files){
+      if(est) est.textContent = `Subiendo ${ok + 1} de ${files.length}...`;
+      try{
+        const r = await procesarArchivo(f), imgId = idAleatorio(8);
+        imagenes[imgId] = { nombre:f.name.replace(/\.[^.]+$/, '').slice(0, 40), src:r.src, ancho:r.ancho, alto:r.alto, origen:'dibujo', creado:Date.now() };
+        await Sync.escribir({ [`imagenes/${imgId}`]:imagenes[imgId] });
+        ok++; if(!primera) primera = imgId;
+      }catch(err){ toast(`${f.name}: ${err.message}`); }
+    }
+    if(est) est.textContent = ok ? `${ok} ${ok === 1 ? 'imagen subida' : 'imágenes subidas'}` : '';
+    const d = estado[DIMG_ID].datos || {};
+    if(primera && !d.img) update(DIMG_ID, { datos:{ ...d, img:primera, rev:false } });
+    pintarTarjeta(DIMG_ID);
+  },
+  borrar(imgId){
+    const im = imagenes[imgId]; if(!im) return;
+    if(!confirm(`¿Borrar "${im.nombre || 'imagen'}"?`)) return;
+    delete imagenes[imgId];
+    Sync.escribir({ [`imagenes/${imgId}`]:null }).catch(err => toast('No se pudo borrar: ' + err.message));
+    const d = estado[DIMG_ID].datos || {};
+    if(d.img === imgId) update(DIMG_ID, { visible:false, datos:{ ...d, img:'' } });
+    pintarTarjeta(DIMG_ID);
+  },
+  // Al empezar una ronda: si hay imagen elegida y está activado, aparece en el "YA" (en negro si es silueta)
+  alIniciar(desde){
+    const e = estado[DIMG_ID]; if(!e) return;
+    const d = e.datos || {}, o = e.opc || {};
+    if(!d.img || o.conRonda === false) return;
+    // el cartel de "ADIVINÓ" siempre queda encima de la imagen
+    const cDib = (estado[DIB_ID] && estado[DIB_ID].capa) || 1, cImg = e.capa || 1;
+    if(cDib <= cImg) update(DIB_ID, { capa:Math.min(50, cImg + 1) });
+    update(DIMG_ID, { visible:true, datos:{ ...d, rev:false, desde } });
+  },
+  revelar(silencioso){
+    const e = estado[DIMG_ID]; if(!e) return;
+    const d = e.datos || {};
+    if(!d.img || !e.visible){ if(!silencioso) toast('No hay imagen en pantalla'); return; }
+    if(!d.rev) update(DIMG_ID, { datos:{ ...d, rev:true } });
+  }
+};
+function pintarDibImg(t, e){
+  const d = e.datos || {}, o = e.opc || {}, lista = imagenesDibujo();
+  const gal = t.querySelector('[data-dimg-galeria]');
+  const firma = lista.map(([k]) => k).join(',') + '|' + d.img + '|' + (o.sil !== false);
+  if(gal._firma !== firma){
+    gal._firma = firma;
+    gal.innerHTML = lista.length ? lista.map(([k, im]) => `<div class="dimg-item">
+        <button class="dimg-mini ${k === d.img ? 'activo' : ''} ${o.sil !== false ? 'silv' : ''}" data-dimg-sel="${k}" title="Usar esta imagen"><img src="${esc(im.src)}" alt="" loading="lazy"></button>
+        <button class="dimg-del" data-dimg-del="${k}" title="Borrar" aria-label="Borrar">x</button>
+        <span class="dimg-nom">${esc(im.nombre || '')}</span></div>`).join('')
+      : '<p class="vacio-texto">Aún no hay imágenes.</p>';
+  }
+  t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = o[c.dataset.opcCheck] !== false; });
+  t.querySelector('[data-act="dimgver"]').disabled = !d.img;
+  t.querySelector('[data-act="dimgrev"]').disabled = !(d.img && e.visible && !d.rev && o.sil !== false);
+}
+
+/* ---------- Mensaje de texto ---------- */
+// Vista previa en la tarjeta (a escala: la letra real sale en el overlay)
+function pintarPrevTexto(t, o, texto){
+  const p = t.querySelector('[data-txt-prev]'); if(!p) return;
+  o = { ...TXT_DEF, ...o };
+  const f = FUENTES_TXT[o.fuente] ? o.fuente : TXT_DEF.fuente, esc2 = .4, g = Number(o.grosor) || 0;
+  p.className = 'txt-prev' + (o.fondo === 'oscuro' ? ' f-oscuro' : o.fondo === 'rosa' ? ' f-rosa' : '');
+  Object.assign(p.style, {
+    fontFamily:`"${f}", "M PLUS Rounded 1c", system-ui, sans-serif`, fontWeight:FUENTES_TXT[f].w,
+    fontSize:Math.max(12, o.tam * esc2) + 'px', color:o.color, textAlign:o.alinear,
+    webkitTextStroke: g ? `${Math.max(1, g * 2 * esc2)}px ${o.borde}` : '0',
+    textShadow: o.brillo ? `0 0 .22em ${o.borde}, 0 0 .5em ${o.borde}` : 'none'
+  });
+  p.textContent = texto || 'Así se verá tu mensaje';
+}
+function pintarTexto(t, e){
+  const o = { ...TXT_DEF, ...(e.opc || {}) }, texto = String((e.datos || {}).texto || '');
+  const ta = t.querySelector('[data-txt]');
+  if(ta !== document.activeElement && !ta._t) ta.value = texto;
+  t.querySelectorAll('[data-txto]').forEach(inp => {
+    if(inp === document.activeElement && inp.type !== 'checkbox') return;
+    const k = inp.dataset.txto;
+    if(inp.type === 'checkbox') inp.checked = !!o[k]; else inp.value = String(o[k]);
+  });
+  t.querySelector('[data-txt-tam]').textContent = o.tam + ' px';
+  t.querySelectorAll('[data-txt-al]').forEach(b => b.classList.toggle('activo', b.dataset.txtAl === o.alinear));
+  pintarPrevTexto(t, o, ta._t ? ta.value : texto);
+}
+
 /* ---------- Dibuja y adivina ---------- */
 // Las palabras NUNCA se suben a Firebase: viven solo en este navegador. El overlay no muestra nada
 // mientras dibujan; solo la cuenta 3, 2, 1, YA al empezar y el cartel con quien adivinó y lo que escribió.
@@ -1922,7 +2096,9 @@ const Dib = {
     this.local = { ronda, palabras, texto };
     this.guardar();
     this.activo = true; this.arrancarReloj();
-    update(DIB_ID, { visible:true, datos:{ t:Date.now(), ronda, fase:'dibujando', inicio:ahora() + 600, total:palabras.length, hechas:0, aciertos:[] } });
+    const inicio = ahora() + 600;
+    update(DIB_ID, { visible:true, datos:{ t:Date.now(), ronda, fase:'dibujando', inicio, total:palabras.length, hechas:0, aciertos:[] } });
+    DImg.alIniciar(inicio + DIB_YA);
   },
   // Revisa un mensaje del chat. Devuelve la palabra adivinada o null.
   revisar(tags, login, msg){
@@ -1941,7 +2117,7 @@ const Dib = {
     const hechas = 1, fin = true;            // cualquier respuesta gana y la ronda termina
     const largo = Array.from(msg).length > 200;
     const ac = { n:nombre, m:largo ? Array.from(msg).slice(0, 200).join('') + '...' : msg, e:largo ? '' : (tags.emotes || ''), t:ahora() };
-    if(fin) this.parar();
+    if(fin){ this.parar(); DImg.revelar(true); }
     update(DIB_ID, { visible:true, datos:{ ...d, fase: fin ? 'fin' : 'dibujando', hechas, aciertos:[...lista(d.aciertos), ac] } });
     return p.w;
   },
@@ -1951,12 +2127,14 @@ const Dib = {
     if(d.ronda !== this.local.ronda || !this.local.palabras.length) return toast('No hay palabras de una ronda de este panel');
     if(this.local.palabras.some(x => x.por)) return toast('Ya adivinaron');
     this.parar();
+    DImg.revelar(true);
     // se muestra la primera línea (la respuesta principal)
     update(DIB_ID, { visible:true, datos:{ ...d, fase:'fin', rev:{ t:ahora(), w:[this.local.palabras[0].w] } } });
   },
   terminar(){
     const d = this.datos();
     this.parar();
+    if(estado[DIMG_ID] && estado[DIMG_ID].visible) update(DIMG_ID, { visible:false });
     update(DIB_ID, { visible:false, datos:d.ronda ? { ...d, fase:'fin', oc:ahora() } : null });
   },
   quitarCartel(){
@@ -2729,6 +2907,12 @@ function accion(id, act){
     case 'ereiniciar': return Enc.reiniciar();
     case 'pfsig': return PF.siguiente();
     case 'dini': return Dib.iniciar();
+    case 'dimgver': {
+      const d = estado[DIMG_ID].datos || {};
+      if(!d.img) return toast('Primero elige una imagen');
+      return update(DIMG_ID, { visible:true, datos:{ ...d, rev:false, desde:0 } });
+    }
+    case 'dimgrev': return DImg.revelar();
     case 'drev': return Dib.revelar();
     case 'dfin': return Dib.terminar();
     case 'doc': return Dib.quitarCartel();
@@ -2743,6 +2927,7 @@ function accion(id, act){
     }
     case 'mostrar': {
       const tipo = estado[id].tipo;
+      if(tipo === 'texto' && !String((estado[id].datos || {}).texto || '').trim()) return toast('Escribe el mensaje primero');
       if(tipo === 'tirada') return mostrarEspera(id);
       if(tipo === 'votacion') return mostrarEsperaVotacion();
       if(tipo === 'encuesta' && opcionesEnc().length < 2) return toast('Escribe al menos 2 opciones');
@@ -2808,6 +2993,15 @@ function eventos(){
       if((estado[id].vot || {}).fase === 'votando') return toast('No se puede cambiar durante la votación');
       return update(id, { opc:{ ...(estado[id].opc || {}), modo:pfm.dataset.pfModo } });
     }
+    const dsel = ev.target.closest('[data-dimg-sel]');
+    if(dsel){
+      const d = estado[DIMG_ID].datos || {};
+      return update(DIMG_ID, { datos:{ ...d, img:dsel.dataset.dimgSel, rev:false, desde:0 } });
+    }
+    const ddel = ev.target.closest('[data-dimg-del]');
+    if(ddel) return DImg.borrar(ddel.dataset.dimgDel);
+    const tal = ev.target.closest('[data-txt-al]');
+    if(tal) return update(id, { opc:{ ...(estado[id].opc || {}), alinear:tal.dataset.txtAl } });
     const md = ev.target.closest('[data-modo]');
     if(md){
       const fase = (estado[id].vot || {}).fase;
@@ -2832,6 +3026,16 @@ function eventos(){
       return;
     }
     if(ev.target.matches('[data-apar-brillo]')) return Apar.campo('general', 'brillo', Number(ev.target.value));
+    if(ev.target.matches('[data-dimg-subir]')){
+      const files = [...ev.target.files]; ev.target.value = '';
+      return DImg.subir(files);
+    }
+    const txo = ev.target.closest('[data-txto]');
+    if(txo && !['tam', 'color', 'borde'].includes(txo.dataset.txto)){
+      const id = txo.closest('.tarjeta').dataset.el, k = txo.dataset.txto;
+      const v = txo.type === 'checkbox' ? txo.checked : k === 'grosor' ? Number(txo.value) : txo.value;
+      return update(id, { opc:{ ...(estado[id].opc || {}), [k]:v } });
+    }
     const vis = ev.target.closest('[data-visible]');
     if(vis) return update(vis.closest('.tarjeta').dataset.el, { visible:vis.checked });
     const chk = ev.target.closest('[data-opc-check]');
@@ -2921,6 +3125,27 @@ function eventos(){
       ta.closest('.tarjeta').querySelector('[data-conteo]').textContent = textoConteo(ops.length);
       clearTimeout(ta._t);
       ta._t = setTimeout(() => { ta._t = 0; cambiarLista(id, leerLista(ta.value)); }, 350);
+      return;
+    }
+    if(ev.target.matches('[data-txt]')){
+      const ta = ev.target, id = ta.closest('.tarjeta').dataset.el;
+      pintarPrevTexto(ta.closest('.tarjeta'), estado[id].opc || {}, ta.value);
+      clearTimeout(ta._t);
+      ta._t = setTimeout(() => { ta._t = 0; update(id, { datos:{ ...(estado[id].datos || {}), texto:ta.value } }); }, 250);
+      return;
+    }
+    if(ev.target.matches('[data-txto="tam"]')){
+      const inp = ev.target, t = inp.closest('.tarjeta'), id = t.dataset.el;
+      t.querySelector('[data-txt-tam]').textContent = inp.value + ' px';
+      pintarPrevTexto(t, { ...(estado[id].opc || {}), tam:Number(inp.value) }, t.querySelector('[data-txt]').value);
+      clearTimeout(inp._t);
+      inp._t = setTimeout(() => update(id, { opc:{ ...(estado[id].opc || {}), tam:Number(inp.value) } }), 120);
+      return;
+    }
+    if(ev.target.matches('[data-txto="color"],[data-txto="borde"]')){
+      const inp = ev.target, id = inp.closest('.tarjeta').dataset.el;
+      clearTimeout(inp._t);
+      inp._t = setTimeout(() => update(id, { opc:{ ...(estado[id].opc || {}), [inp.dataset.txto]:inp.value } }), 120);
       return;
     }
     if(ev.target.matches('[data-dib-palabras]')){
