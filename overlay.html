@@ -439,12 +439,16 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .dib-msg .emote{height:1.25em;vertical-align:middle;margin:0 .08em}
 .dib-msg:empty{display:none}
 @media (prefers-reduced-motion:reduce){.dib-cuenta span.ver{animation:none}.dib-cartel{transition:none}}
-/* Imagen a adivinar (siluetas): en negro hasta que adivinan, luego se revela en color */
-.dimg{position:relative;width:100%;height:100%}
-.dimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:1;transform:scale(1);
-  transition:filter .9s ease, opacity .35s ease, transform .55s cubic-bezier(.2,1.5,.4,1)}
-.dimg:not(.lista) img,.dimg.espera img{opacity:0;transform:scale(.8)}
-.dimg.sil img{filter:brightness(0) drop-shadow(0 0 calc(var(--u)*16px) rgba(255,0,127,.9))}
+/* Imagen con título (pestaña Dibujo): el título arriba y la imagen ocupa el resto */
+.dimg{position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*18px)}
+.dimg-tit{flex:none;max-width:100%;box-sizing:border-box;text-align:center;font-weight:800;color:#FFFFFF;line-height:1.1;overflow-wrap:anywhere;
+  font-size:calc(var(--u)*64px);padding:calc(var(--u)*10px) calc(var(--u)*38px);border-radius:999px;
+  background:rgba(13,13,13,.92);border:calc(var(--u)*6px) solid #FF007F;box-shadow:inset 0 0 0 calc(var(--u)*3px) #FFC2DC, 0 0 calc(var(--u)*30px) rgba(255,0,127,.5)}
+.dimg-tit:empty{display:none}
+.dimg-foto{position:relative;flex:1;width:100%;min-height:0}
+.dimg-foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transform:scale(.85);
+  transition:opacity .35s ease, transform .55s cubic-bezier(.2,1.5,.4,1)}
+.dimg.lista .dimg-foto img{opacity:1;transform:scale(1)}
 /* Mensaje de texto libre */
 .txt{position:relative;width:100%;height:100%;display:flex;align-items:center;box-sizing:border-box;overflow:hidden}
 .txt div{width:100%;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.15;paint-order:stroke fill}
@@ -734,26 +738,23 @@ function actualizarDibujo(c, e){
   if(d.oc && d.oc !== r.oc){ r.oc = d.oc; r.cola = []; dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.num.classList.remove('ver'); dibOcultarCartel(r); }
 }
 
-/* ---------- Imagen a adivinar (dibujo / siluetas) ---------- */
-// datos: { img, rev, desde }. opc.sil: se ve en negro hasta que rev = true. desde: hora del servidor
-// en que aparece (el "YA" de la ronda); si ya pasó, aparece de inmediato.
-function crearDibImg(c){ c.innerHTML = '<div class="dimg"><img alt=""></div>'; c._dimg = { caja:c.firstChild, img:c.querySelector('img'), cur:null, timer:0 }; }
+/* ---------- Imagen con título (pestaña Dibujo) ---------- */
+// datos: { img, titulo }. La imagen se carga bajo demanda, como las del Random.
+function crearDibImg(c){
+  c.innerHTML = '<div class="dimg"><div class="dimg-tit"></div><div class="dimg-foto"><img alt=""></div></div>';
+  c._dimg = { caja:c.firstChild, tit:c.querySelector('.dimg-tit'), img:c.querySelector('img'), cur:null };
+}
 function actualizarDibImg(c, e){
-  const r = c._dimg, d = e.datos || {}, o = e.opc || {};
-  r.caja.classList.toggle('sil', o.sil !== false && !d.rev);
+  const r = c._dimg, d = e.datos || {};
+  r.tit.textContent = String(d.titulo || '');
   if(!d.img){ r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); return; }
-  if(d.img !== r.cur){
-    r.cur = d.img; r.caja.classList.remove('lista');
-    srcRandom(d.img).then(src => {
-      if(!src || r.cur !== d.img) return;
-      r.img.onload = () => { if(r.cur === d.img) r.caja.classList.add('lista'); };
-      r.img.src = src;
-    });
-  }
-  clearTimeout(r.timer);
-  const falta = (d.desde || 0) - ahora();
-  r.caja.classList.toggle('espera', falta > 0);
-  if(falta > 0) r.timer = setTimeout(() => r.caja.classList.remove('espera'), falta);
+  if(d.img === r.cur && r.img.getAttribute('src')) return;
+  r.cur = d.img; r.caja.classList.remove('lista');
+  srcRandom(d.img).then(src => {
+    if(!src || r.cur !== d.img) return;
+    r.img.onload = () => { if(r.cur === d.img) r.caja.classList.add('lista'); };
+    r.img.src = src;
+  });
 }
 
 /* ---------- Mensaje de texto ---------- */
@@ -1427,7 +1428,7 @@ const TIPOS = {
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
   dibujo: { crear: crearDibujo, actualizar: actualizarDibujo },
-  dibimg: { crear: crearDibImg, actualizar: actualizarDibImg, liberar(c){ const r = c._dimg; clearTimeout(r.timer); r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); } },
+  dibimg: { crear: crearDibImg, actualizar: actualizarDibImg, liberar(c){ const r = c._dimg; r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); } },
   texto: { crear: crearTexto, actualizar: actualizarTexto },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
@@ -1443,7 +1444,6 @@ function detener(n){
   const c = n.firstChild; if(!c) return;
   if(c._ruleta) cancelAnimationFrame(c._ruleta.raf);
   if(c._dib){ dibLimpiar(c._dib); dibLimpiar(c._dib, 'tcuenta'); }
-  if(c._dimg) clearTimeout(c._dimg.timer);
   if(c._tirada){ c._tirada.token++; c._tirada.timers.forEach(clearTimeout); }
 }
 // Campos que solo mueven el elemento: si solo cambia uno de estos, no se vuelve a dibujar el contenido

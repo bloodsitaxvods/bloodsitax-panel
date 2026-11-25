@@ -162,7 +162,6 @@ a{color:var(--rosa)}
 .dimg-mini{width:100%;aspect-ratio:1;display:block;padding:4px;border-radius:10px;border:2px solid var(--linea);background:repeating-conic-gradient(#1a0f16 0% 25%, #120a10 0% 50%) 50% / 14px 14px;cursor:pointer}
 .dimg-mini img{width:100%;height:100%;object-fit:contain;display:block}
 .dimg-mini.activo{border-color:var(--neon);box-shadow:0 0 12px rgba(255,0,127,.55)}
-.dimg-mini.silv img{filter:brightness(0)}
 .dimg-del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(13,13,13,.85);color:#fff;font-weight:800;cursor:pointer;line-height:1}
 .dimg-del:hover{background:var(--neon)}
 .dimg-nom{display:block;font-size:11px;color:var(--tenue);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
@@ -393,7 +392,7 @@ const ELEMENTOS = {
   'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 },
   'lista-jugadores':     { nombre:'Lista para jugar',   tipo:'lista', w:480, h:640, x:300, y:540 },
   'dibujo':              { nombre:'Dibuja y adivina',   tipo:'dibujo', w:1200, h:560, x:960, y:420 },
-  'dibujo-imagen':       { nombre:'Imagen a adivinar',  tipo:'dibimg', w:640, h:640, x:960, y:560 },
+  'dibujo-imagen':       { nombre:'Imagen con título',  tipo:'dibimg', w:800, h:700, x:960, y:560 },
   'texto':               { nombre:'Mensaje',            tipo:'texto', w:1400, h:260, x:960, y:170 }
 };
 const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
@@ -498,7 +497,7 @@ function porDefecto(id){
   if(d.tipo === 'encuesta') base.opc = { dur:30 };
   if(d.tipo === 'prefieres') base.opc = { dur:20, modo:'manual' };
   if(d.tipo === 'dibujo') base.opc = { cartel:8, mods:false };
-  if(d.tipo === 'dibimg') base.opc = { sil:true, conRonda:true };
+  if(d.tipo === 'dibimg') base.datos = { img:'', titulo:'' };
   if(d.tipo === 'texto'){ base.opc = { ...TXT_DEF }; base.datos = { texto:'' }; }
   return base;
 }
@@ -757,18 +756,15 @@ function tarjeta(id){
       <p class="vot-estado-panel" data-vot-estado></p>
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'dibimg'){
-    cuerpo = `<p class="nota">Sube una o varias imágenes, elige cuál va y activa la ronda arriba con tus respuestas. Para siluetas usa PNG con fondo transparente: así queda la figura en negro y se revela en color cuando adivinan.</p>
+    cuerpo = `<div class="form-fila"><input class="campo" data-dimg-titulo maxlength="80" placeholder="Título (por ejemplo: ¿Qué personaje es?)"></div>
+      <p class="nota">El título sale arriba de la imagen. Déjalo vacío si no quieres título.</p>
       <div class="acciones"><label class="btn principal archivo">Subir imágenes<input type="file" multiple accept="image/*" data-dimg-subir></label><span class="nota" data-dimg-estado></span></div>
       <div class="dimg-galeria" data-dimg-galeria></div>
-      <div class="opciones">
-        <label class="opcion"><input type="checkbox" data-opc-check="sil"> En negro (silueta) hasta que adivinen</label>
-        <label class="opcion"><input type="checkbox" data-opc-check="conRonda"> Que aparezca sola al decir YA</label>
-      </div>
       <div class="acciones">
-        <button class="btn principal grande" data-act="dimgver">Mostrar ahora</button>
-        <button class="btn grande" data-act="dimgrev">Revelar</button>
-        <button class="btn" data-act="ocultar">Ocultar</button>
-      </div>`;
+        <button class="btn principal grande" data-act="dimgver">Mostrar</button>
+        <button class="btn grande" data-act="ocultar">Ocultar</button>
+      </div>
+      <p class="nota">Toca una imagen de la galería para elegirla; si ya está en pantalla, cambia al instante.</p>`;
   } else if(e.tipo === 'texto'){
     cuerpo = `<textarea class="lista" data-txt maxlength="500" placeholder="Escribe tu mensaje. Con Enter haces otra línea." aria-label="Mensaje"></textarea>
       <div class="txt-prev" data-txt-prev></div>
@@ -1950,7 +1946,7 @@ function pintarPrefieres(t, e){
 }
 
 
-/* ---------- Imagen a adivinar (siluetas) ---------- */
+/* ---------- Imagen con título (pestaña Dibujo) ---------- */
 // Las imágenes se guardan con las del Random (imagenes/{id}, origen 'dibujo') pero no aparecen en esa pestaña.
 const DIMG_ID = 'dibujo-imagen';
 const imagenesDibujo = () => Object.entries(imagenes).filter(([, im]) => im && im.origen === 'dibujo').sort((a, b) => (a[1].creado || 0) - (b[1].creado || 0));
@@ -1969,7 +1965,7 @@ const DImg = {
     }
     if(est) est.textContent = ok ? `${ok} ${ok === 1 ? 'imagen subida' : 'imágenes subidas'}` : '';
     const d = estado[DIMG_ID].datos || {};
-    if(primera && !d.img) update(DIMG_ID, { datos:{ ...d, img:primera, rev:false } });
+    if(primera && !d.img) update(DIMG_ID, { datos:{ ...d, img:primera } });
     pintarTarjeta(DIMG_ID);
   },
   borrar(imgId){
@@ -1980,39 +1976,23 @@ const DImg = {
     const d = estado[DIMG_ID].datos || {};
     if(d.img === imgId) update(DIMG_ID, { visible:false, datos:{ ...d, img:'' } });
     pintarTarjeta(DIMG_ID);
-  },
-  // Al empezar una ronda: si hay imagen elegida y está activado, aparece en el "YA" (en negro si es silueta)
-  alIniciar(desde){
-    const e = estado[DIMG_ID]; if(!e) return;
-    const d = e.datos || {}, o = e.opc || {};
-    if(!d.img || o.conRonda === false) return;
-    // el cartel de "ADIVINÓ" siempre queda encima de la imagen
-    const cDib = (estado[DIB_ID] && estado[DIB_ID].capa) || 1, cImg = e.capa || 1;
-    if(cDib <= cImg) update(DIB_ID, { capa:Math.min(50, cImg + 1) });
-    update(DIMG_ID, { visible:true, datos:{ ...d, rev:false, desde } });
-  },
-  revelar(silencioso){
-    const e = estado[DIMG_ID]; if(!e) return;
-    const d = e.datos || {};
-    if(!d.img || !e.visible){ if(!silencioso) toast('No hay imagen en pantalla'); return; }
-    if(!d.rev) update(DIMG_ID, { datos:{ ...d, rev:true } });
   }
 };
 function pintarDibImg(t, e){
-  const d = e.datos || {}, o = e.opc || {}, lista = imagenesDibujo();
+  const d = e.datos || {}, lista = imagenesDibujo();
   const gal = t.querySelector('[data-dimg-galeria]');
-  const firma = lista.map(([k]) => k).join(',') + '|' + d.img + '|' + (o.sil !== false);
+  const firma = lista.map(([k]) => k).join(',') + '|' + d.img;
   if(gal._firma !== firma){
     gal._firma = firma;
     gal.innerHTML = lista.length ? lista.map(([k, im]) => `<div class="dimg-item">
-        <button class="dimg-mini ${k === d.img ? 'activo' : ''} ${o.sil !== false ? 'silv' : ''}" data-dimg-sel="${k}" title="Usar esta imagen"><img src="${esc(im.src)}" alt="" loading="lazy"></button>
+        <button class="dimg-mini ${k === d.img ? 'activo' : ''}" data-dimg-sel="${k}" title="Usar esta imagen"><img src="${esc(im.src)}" alt="" loading="lazy"></button>
         <button class="dimg-del" data-dimg-del="${k}" title="Borrar" aria-label="Borrar">x</button>
         <span class="dimg-nom">${esc(im.nombre || '')}</span></div>`).join('')
       : '<p class="vacio-texto">Aún no hay imágenes.</p>';
   }
-  t.querySelectorAll('[data-opc-check]').forEach(c => { c.checked = o[c.dataset.opcCheck] !== false; });
+  const tit = t.querySelector('[data-dimg-titulo]');
+  if(tit !== document.activeElement && !tit._t) tit.value = d.titulo || '';
   t.querySelector('[data-act="dimgver"]').disabled = !d.img;
-  t.querySelector('[data-act="dimgrev"]').disabled = !(d.img && e.visible && !d.rev && o.sil !== false);
 }
 
 /* ---------- Mensaje de texto ---------- */
@@ -2096,9 +2076,7 @@ const Dib = {
     this.local = { ronda, palabras, texto };
     this.guardar();
     this.activo = true; this.arrancarReloj();
-    const inicio = ahora() + 600;
-    update(DIB_ID, { visible:true, datos:{ t:Date.now(), ronda, fase:'dibujando', inicio, total:palabras.length, hechas:0, aciertos:[] } });
-    DImg.alIniciar(inicio + DIB_YA);
+    update(DIB_ID, { visible:true, datos:{ t:Date.now(), ronda, fase:'dibujando', inicio:ahora() + 600, total:palabras.length, hechas:0, aciertos:[] } });
   },
   // Revisa un mensaje del chat. Devuelve la palabra adivinada o null.
   revisar(tags, login, msg){
@@ -2117,7 +2095,7 @@ const Dib = {
     const hechas = 1, fin = true;            // cualquier respuesta gana y la ronda termina
     const largo = Array.from(msg).length > 200;
     const ac = { n:nombre, m:largo ? Array.from(msg).slice(0, 200).join('') + '...' : msg, e:largo ? '' : (tags.emotes || ''), t:ahora() };
-    if(fin){ this.parar(); DImg.revelar(true); }
+    if(fin) this.parar();
     update(DIB_ID, { visible:true, datos:{ ...d, fase: fin ? 'fin' : 'dibujando', hechas, aciertos:[...lista(d.aciertos), ac] } });
     return p.w;
   },
@@ -2127,14 +2105,12 @@ const Dib = {
     if(d.ronda !== this.local.ronda || !this.local.palabras.length) return toast('No hay palabras de una ronda de este panel');
     if(this.local.palabras.some(x => x.por)) return toast('Ya adivinaron');
     this.parar();
-    DImg.revelar(true);
     // se muestra la primera línea (la respuesta principal)
     update(DIB_ID, { visible:true, datos:{ ...d, fase:'fin', rev:{ t:ahora(), w:[this.local.palabras[0].w] } } });
   },
   terminar(){
     const d = this.datos();
     this.parar();
-    if(estado[DIMG_ID] && estado[DIMG_ID].visible) update(DIMG_ID, { visible:false });
     update(DIB_ID, { visible:false, datos:d.ronda ? { ...d, fase:'fin', oc:ahora() } : null });
   },
   quitarCartel(){
@@ -2910,9 +2886,8 @@ function accion(id, act){
     case 'dimgver': {
       const d = estado[DIMG_ID].datos || {};
       if(!d.img) return toast('Primero elige una imagen');
-      return update(DIMG_ID, { visible:true, datos:{ ...d, rev:false, desde:0 } });
+      return update(DIMG_ID, { visible:true });
     }
-    case 'dimgrev': return DImg.revelar();
     case 'drev': return Dib.revelar();
     case 'dfin': return Dib.terminar();
     case 'doc': return Dib.quitarCartel();
@@ -2996,7 +2971,7 @@ function eventos(){
     const dsel = ev.target.closest('[data-dimg-sel]');
     if(dsel){
       const d = estado[DIMG_ID].datos || {};
-      return update(DIMG_ID, { datos:{ ...d, img:dsel.dataset.dimgSel, rev:false, desde:0 } });
+      return update(DIMG_ID, { datos:{ ...d, img:dsel.dataset.dimgSel } });
     }
     const ddel = ev.target.closest('[data-dimg-del]');
     if(ddel) return DImg.borrar(ddel.dataset.dimgDel);
@@ -3125,6 +3100,12 @@ function eventos(){
       ta.closest('.tarjeta').querySelector('[data-conteo]').textContent = textoConteo(ops.length);
       clearTimeout(ta._t);
       ta._t = setTimeout(() => { ta._t = 0; cambiarLista(id, leerLista(ta.value)); }, 350);
+      return;
+    }
+    if(ev.target.matches('[data-dimg-titulo]')){
+      const inp = ev.target;
+      clearTimeout(inp._t);
+      inp._t = setTimeout(() => { inp._t = 0; update(DIMG_ID, { datos:{ ...(estado[DIMG_ID].datos || {}), titulo:inp.value.trim() } }); }, 300);
       return;
     }
     if(ev.target.matches('[data-txt]')){
