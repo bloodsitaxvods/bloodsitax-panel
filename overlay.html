@@ -439,6 +439,22 @@ body[data-brillo="2"] .enc-carta .marco, body[data-brillo="2"] .enc .vot-estado{
 .dib-msg .emote{height:1.25em;vertical-align:middle;margin:0 .08em}
 .dib-msg:empty{display:none}
 @media (prefers-reduced-motion:reduce){.dib-cuenta span.ver{animation:none}.dib-cartel{transition:none}}
+/* Imagen con título (pestaña Dibujo): el título arriba y la imagen ocupa el resto */
+.dimg{position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*18px)}
+.dimg-tit{flex:none;max-width:100%;box-sizing:border-box;text-align:center;font-weight:800;color:#FFFFFF;line-height:1.1;overflow-wrap:anywhere;
+  font-size:calc(var(--u)*64px);padding:calc(var(--u)*10px) calc(var(--u)*38px);border-radius:999px;
+  background:rgba(13,13,13,.92);border:calc(var(--u)*6px) solid #FF007F;box-shadow:inset 0 0 0 calc(var(--u)*3px) #FFC2DC, 0 0 calc(var(--u)*30px) rgba(255,0,127,.5)}
+.dimg-tit:empty{display:none}
+.dimg-foto{position:relative;flex:1;width:100%;min-height:0}
+.dimg-foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transform:scale(.85);
+  transition:opacity .35s ease, transform .55s cubic-bezier(.2,1.5,.4,1)}
+.dimg.lista .dimg-foto img{opacity:1;transform:scale(1)}
+/* Mensaje de texto libre */
+.txt{position:relative;width:100%;height:100%;display:flex;align-items:center;box-sizing:border-box;overflow:hidden}
+.txt div{width:100%;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.15;paint-order:stroke fill}
+.txt.f-oscuro,.txt.f-rosa{border-radius:28px;padding:18px 34px}
+.txt.f-oscuro{background:rgba(13,13,13,.9);border:5px solid #FF007F;box-shadow:inset 0 0 0 2px #FFC2DC, 0 0 30px rgba(255,0,127,.45)}
+.txt.f-rosa{background:rgba(255,0,127,.92);border:5px solid #FFC2DC;box-shadow:0 0 30px rgba(255,0,127,.5)}
 @media (prefers-reduced-motion:reduce){.el,.cuerpo,.ganador{transition:none}}
 </style>
 </head>
@@ -720,6 +736,66 @@ function actualizarDibujo(c, e){
     dibEncolar(r, { tit:'NADIE ADIVINÓ', nom:'Era: ' + lista(d.rev.w).join(', '), msg:'' }, dur);
   }
   if(d.oc && d.oc !== r.oc){ r.oc = d.oc; r.cola = []; dibLimpiar(r); dibLimpiar(r, 'tcuenta'); r.num.classList.remove('ver'); dibOcultarCartel(r); }
+}
+
+/* ---------- Imagen con título (pestaña Dibujo) ---------- */
+// datos: { img, titulo }. La imagen se carga bajo demanda, como las del Random.
+function crearDibImg(c){
+  c.innerHTML = '<div class="dimg"><div class="dimg-tit"></div><div class="dimg-foto"><img alt=""></div></div>';
+  c._dimg = { caja:c.firstChild, tit:c.querySelector('.dimg-tit'), img:c.querySelector('img'), cur:null };
+}
+function actualizarDibImg(c, e){
+  const r = c._dimg, d = e.datos || {};
+  r.tit.textContent = String(d.titulo || '');
+  if(!d.img){ r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); return; }
+  if(d.img === r.cur && r.img.getAttribute('src')) return;
+  r.cur = d.img; r.caja.classList.remove('lista');
+  srcRandom(d.img).then(src => {
+    if(!src || r.cur !== d.img) return;
+    r.img.onload = () => { if(r.cur === d.img) r.caja.classList.add('lista'); };
+    r.img.src = src;
+  });
+}
+
+/* ---------- Mensaje de texto ---------- */
+// Fuentes de Google: solo se descarga la que se usa
+const FUENTES_TXT = {
+  'M PLUS Rounded 1c':'800', 'Fredoka':'700', 'Bebas Neue':'400', 'Bangers':'400', 'Permanent Marker':'400', 'Pacifico':'400',
+  'Lobster':'400', 'Creepster':'400', 'Nosifer':'400', 'Press Start 2P':'400', 'Righteous':'400', 'Caveat':'700'
+};
+const fuentesPedidas = new Set(['M PLUS Rounded 1c']);
+function pedirFuente(f){
+  if(fuentesPedidas.has(f) || !FUENTES_TXT[f]) return;
+  fuentesPedidas.add(f);
+  const l = document.createElement('link'); l.rel = 'stylesheet';
+  l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@${FUENTES_TXT[f]}&display=swap`;
+  document.head.append(l);
+}
+function crearTexto(c){ c.innerHTML = '<div class="txt"><div></div></div>'; }
+function actualizarTexto(c, e){
+  const caja = c.firstChild, t = caja.firstChild, o = e.opc || {};
+  const f = FUENTES_TXT[o.fuente] ? o.fuente : 'M PLUS Rounded 1c';
+  pedirFuente(f);
+  caja.className = 'txt' + (o.fondo === 'oscuro' ? ' f-oscuro' : o.fondo === 'rosa' ? ' f-rosa' : '');
+  const al = ['left', 'right'].includes(o.alinear) ? o.alinear : 'center';
+  const g = Math.max(0, Number(o.grosor ?? 6)), borde = o.borde || '#FF007F';
+  Object.assign(t.style, {
+    fontFamily:`"${f}", "M PLUS Rounded 1c", system-ui, sans-serif`, fontWeight:FUENTES_TXT[f],
+    color:o.color || '#FFFFFF', textAlign:al,
+    webkitTextStroke: g ? `${g * 2}px ${borde}` : '0',
+    textShadow: o.brillo !== false ? `0 0 .22em ${borde}, 0 0 .5em ${borde}` : 'none'
+  });
+  t.textContent = String((e.datos || {}).texto || '');
+  // achica la letra si el texto no cabe en el cuadro (solo cuando cambia algo, no en cada cuadro)
+  const ajustar = () => {
+    let tam = Math.max(8, Number(o.tam) || 96);
+    t.style.fontSize = tam + 'px';
+    for(let i = 0; i < 24 && (t.scrollHeight > caja.clientHeight + 1 || t.scrollWidth > caja.clientWidth + 1) && tam > 10; i++){
+      tam = Math.floor(tam * .92); t.style.fontSize = tam + 'px';
+    }
+  };
+  ajustar();
+  if(document.fonts && document.fonts.load) document.fonts.load(`${FUENTES_TXT[f]} 40px "${f}"`).then(ajustar).catch(() => {});
 }
 
 /* ---------- Imágenes bajo demanda ---------- */
@@ -1352,6 +1428,8 @@ const TIPOS = {
   },
   ruleta: { crear: crearRuleta, actualizar: actualizarRuleta },
   dibujo: { crear: crearDibujo, actualizar: actualizarDibujo },
+  dibimg: { crear: crearDibImg, actualizar: actualizarDibImg, liberar(c){ const r = c._dimg; r.cur = null; r.img.removeAttribute('src'); r.caja.classList.remove('lista'); } },
+  texto: { crear: crearTexto, actualizar: actualizarTexto },
   horoscopo: { crear: dibujarHoroscopo, actualizar(c, e, nuevo){ if(nuevo) dibujarHoroscopo(c, e); } },
   tirada: { crear: crearTirada, actualizar: actualizarTirada, liberar: liberarTirada },
   votacion: { crear: crearVotacion, actualizar: actualizarVotacion, liberar: liberarTirada },
