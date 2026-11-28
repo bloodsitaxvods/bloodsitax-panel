@@ -409,7 +409,7 @@ const ELEMENTOS = {
   'chat-encuesta':       { nombre:'Chat de la votación', tipo:'chat', w:480, h:640, x:1650, y:560 },
   'prefieres':           { nombre:'Qué prefieres',      tipo:'prefieres', w:1300, h:620, x:720, y:540 },
   'chat-prefieres':      { nombre:'Chat de Qué prefieres', tipo:'chat', w:480, h:640, x:1650, y:560 },
-  'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:900, h:640, x:1400, y:400 },
+  'horoscopo':           { nombre:'Horóscopo',          tipo:'horoscopo', signos:true, w:1100, h:780, x:1300, y:440 },
   'lista-jugadores':     { nombre:'Lista para jugar',   tipo:'lista', w:480, h:640, x:300, y:540 },
   'dibujo':              { nombre:'Dibuja y adivina',   tipo:'dibujo', w:1200, h:560, x:960, y:420 },
   'dibujo-imagen':       { nombre:'Imagen con título',  tipo:'dibimg', w:800, h:700, x:960, y:560 },
@@ -916,7 +916,8 @@ function tarjeta(id){
     cuerpo = `<div class="signos">${SIGNOS.map(s => `<button class="btn signo" data-signo="${s}">${s}</button>`).join('')}</div>
       <div class="acciones"><button class="btn" data-act="mostrar">Mostrar</button><button class="btn" data-act="ocultar">Ocultar</button></div>
       <div class="horo-carga">
-        <label class="btn principal archivo">Subir horóscopo del día<input type="file" accept=".json,application/json" data-horo-archivo></label>
+        <button class="btn principal" data-horo-hoy>Cargar el de hoy</button>
+        <label class="btn archivo">Subir archivo<input type="file" accept=".json,application/json" data-horo-archivo></label>
         <p class="nota" data-horo-estado>Aún no hay horóscopo cargado.</p>
       </div>`;
   } else {
@@ -3010,10 +3011,14 @@ function convertirHoroscopo(json){
     const nombre = SIGNOS.find(s => sinAcentos(s) === sinAcentos(it && it.signo));
     if(!nombre) continue;
     const p = it.predicciones || {}, ds = it.datos_suerte || {};
+    const nums = Array.isArray(it.numeros) ? it.numeros : Array.isArray(ds.numeros) ? ds.numeros : [];
     signos[nombre] = {
+      // Formato nuevo (generador diario): amor con pareja / sin pareja y consejo del día
+      amorP: String(it.amor_pareja || ''), amorS: String(it.amor_soltero || ''), consejo: String(it.consejo || ''),
+      // Formato viejo, se sigue aceptando
       general: String(p.general || ''), amor: String(p.amor || ''),
-      dinero: String(p.dinero_y_trabajo || p.dinero || ''), salud: String(p.salud || ''),
-      numeros: (Array.isArray(ds.numeros) ? ds.numeros : []).slice(0, 6).map(String),
+      dinero: String(it.dinero_trabajo || p.dinero_y_trabajo || p.dinero || ''), salud: String(it.salud || p.salud || ''),
+      numeros: nums.slice(0, 6).map(String),
       color: String(ds.color || ''), compat: String(ds.mejor_compatibilidad || ''), clave: String(ds.palabra_clave || '')
     };
     if(!fecha && it.fecha) fecha = String(it.fecha);
@@ -3021,14 +3026,30 @@ function convertirHoroscopo(json){
   if(!Object.keys(signos).length) throw new Error('El archivo no tiene signos reconocibles.');
   return { fecha, actualizado: Date.now(), signos };
 }
+const HORO_RAW = 'https://raw.githubusercontent.com/bloodsitaxvods/bloodsitax-panel/main/horoscopo/hoy.json';
+const hoyLima = () => new Intl.DateTimeFormat('en-CA', { timeZone:'America/Lima', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
 const Horo = {
   datos:null, db:null,
   conectar(db){ this.db = db; db.ref(`overlay/${sala}/horoscopo`).on('value', s => { this.datos = s.val(); this.pintar(); }); },
   iniciarLocal(){ try{ this.datos = JSON.parse(leerLS('bsx-horoscopo-' + sala) || 'null'); }catch{} this.pintar(); },
-  async cargar(file){
+  async cargar(file){ return this.guardar(() => file.text()); },
+  // Baja el JSON que genera la Action cada mañana (horoscopo/hoy.json en este repo)
+  async cargarHoy(){
+    const est = document.querySelector('[data-horo-estado]');
+    if(est) est.textContent = 'Buscando el horóscopo de hoy...';
+    return this.guardar(async () => {
+      const urls = [new URL('horoscopo/hoy.json', location.href).href, HORO_RAW];
+      for(const u of urls){
+        try{ const r = await fetch(u + '?t=' + Date.now(), { cache:'no-store' }); if(r.ok) return await r.text(); }catch{}
+      }
+      throw new Error('No encontré horoscopo/hoy.json. Revisa que la Action de GitHub ya haya corrido.');
+    }, true);
+  },
+  async guardar(leer, avisarFecha){
     const est = document.querySelector('[data-horo-estado]');
     try{
-      const d = convertirHoroscopo(JSON.parse(await file.text()));
+      const d = convertirHoroscopo(JSON.parse(await leer()));
+      if(avisarFecha && d.fecha && d.fecha !== hoyLima()) toast(`Ojo: el horóscopo es del ${d.fecha}, no de hoy`);
       if(this.db) await this.db.ref(`overlay/${sala}/horoscopo`).set(d);
       else guardarLS('bsx-horoscopo-' + sala, JSON.stringify(d));
       this.datos = d; this.pintar();
@@ -3185,6 +3206,7 @@ function eventos(){
     const cb = ev.target.closest('[data-cambiar]'); if(cb) return cambiarCarta(id, +cb.dataset.cambiar);
     const a = ev.target.closest('[data-act]'); if(a) return accion(id, a.dataset.act);
     const p = ev.target.closest('[data-pos]'); if(p) return posRapida(id, +p.dataset.pos);
+    if(ev.target.closest('[data-horo-hoy]')) return Horo.cargarHoy();
     const s = ev.target.closest('[data-signo]');
     if(s){
       const h = Horo.datos && Horo.datos.signos && Horo.datos.signos[s.dataset.signo];
