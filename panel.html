@@ -180,6 +180,7 @@ a{color:var(--rosa)}
 .dimg-nuevo{display:flex;align-items:center;justify-content:center;min-height:72px;border-radius:10px;border:2px dashed var(--linea);background:transparent;color:var(--tenue);font-weight:800;cursor:pointer}
 .dimg-nuevo:hover{border-color:var(--neon);color:#fff}
 .dimg-resp{min-height:92px}
+.dimg-grupos{margin-bottom:12px}
 .dimg-cuenta{grid-column:1 / -1;font-size:11px;text-align:center;color:var(--tenue);padding-top:2px}
 .dimg-cuenta.falta{color:#FFB020}
 .dimg-del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:none;background:#2a1520;color:#fff;font-weight:800;cursor:pointer;line-height:1}
@@ -516,7 +517,7 @@ function porDefecto(id){
   if(d.tipo === 'encuesta') base.opc = { dur:30 };
   if(d.tipo === 'prefieres') base.opc = { dur:20, modo:'manual' };
   if(d.tipo === 'dibujo') base.opc = { cartel:8, mods:false };
-  if(d.tipo === 'dibimg'){ base.datos = { img:'', img2:'', titulo:'', pares:[], sel:0, rev:false }; base.opc = { auto:true }; }
+  if(d.tipo === 'dibimg'){ base.datos = { img:'', img2:'', titulo:'', grupo:'marvel', rev:false }; base.opc = { auto:true }; }
   if(d.tipo === 'texto'){ base.opc = { ...TXT_DEF }; base.datos = { texto:'' }; }
   return base;
 }
@@ -775,8 +776,9 @@ function tarjeta(id){
       <p class="vot-estado-panel" data-vot-estado></p>
       <div class="chat" data-chat></div>`;
   } else if(e.tipo === 'dibimg'){
-    cuerpo = `<div class="form-fila"><input class="campo" data-dimg-titulo maxlength="80" placeholder="Título (por ejemplo: ¿Qué personaje es?)"></div>
-      <p class="nota">El título sale arriba de la imagen. Déjalo vacío si no quieres título.</p>
+    cuerpo = `<div class="modo-botones tres dimg-grupos">${DIMG_GRUPOS.map(([k, n]) => `<button class="modo-btn" data-dimg-grupo="${k}"><b>${n}</b><small></small></button>`).join('')}</div>
+      <div class="form-fila"><input class="campo" data-dimg-titulo maxlength="80" placeholder="Título (por ejemplo: ¿Qué personaje es?)"></div>
+      <p class="nota">Cada juego tiene sus propios pares y su propio título. El título sale arriba de la imagen; déjalo vacío si no quieres título.</p>
       <div class="dimg-par">
         <div class="dimg-slot" data-slot-box="a">
           <span class="dimg-slot-tit">Imagen</span>
@@ -1986,18 +1988,51 @@ function pintarPrefieres(t, e){
 
 
 /* ---------- Imagen con título (pestaña Dibujo) ---------- */
-// Cada par: a = imagen que se muestra, b = la que sale al adivinar. Los pares guardan solo los ids;
+// Pares de imágenes separados por juego (Marvel, DBD, Random). Cada par: a = la que se muestra,
+// b = la que sale al adivinar, r = sus respuestas (una por línea). Los pares guardan solo los ids;
 // las imágenes van con las del Random (imagenes/{id}, origen 'dibujo') pero no aparecen en esa pestaña.
-// datos: { titulo, pares:[{a,b}], sel, img, img2, rev }  (img/img2 = el par elegido, lo que lee el overlay)
+// datos: { grupo, grupos:{ marvel|dbd|random:{ pares, sel, titulo } }, img, img2, titulo, rev, inicio }
+// img/img2/titulo son los del par elegido del juego activo: es lo único que lee el overlay.
 const DIMG_ID = 'dibujo-imagen';
+const DIMG_GRUPOS = [['marvel', 'Marvel'], ['dbd', 'DBD'], ['random', 'Random']];
 const imagenesDibujo = () => Object.entries(imagenes).filter(([, im]) => im && im.origen === 'dibujo').sort((a, b) => (a[1].creado || 0) - (b[1].creado || 0));
+const limpiarPar = p => ({ a:(p && p.a) || '', b:(p && p.b) || '', r:(p && p.r) || '' });
 const DImg = {
   migrado:false,
   datos(){ return (estado[DIMG_ID] && estado[DIMG_ID].datos) || {}; },
-  pares(){ return lista(this.datos().pares).map(p => ({ a:(p && p.a) || '', b:(p && p.b) || '', r:(p && p.r) || '' })); },
+  gid(){ const g = this.datos().grupo; return DIMG_GRUPOS.some(([k]) => k === g) ? g : 'marvel'; },
+  grupo(gid = this.gid()){ return ((this.datos().grupos || {})[gid]) || {}; },
+  pares(gid){ return lista(this.grupo(gid).pares).map(limpiarPar); },
+  sel(gid){ return Number(this.grupo(gid).sel) || 0; },
+  // guarda los pares del juego activo y deja img/img2/titulo apuntando al par elegido
+  guardar(pares, sel, extra = {}, arriba = {}){
+    const d = this.datos(), gid = this.gid(), g = this.grupo(gid);
+    sel = pares.length ? Math.max(0, Math.min(sel, pares.length - 1)) : 0;
+    const p = pares[sel] || { a:'', b:'' };
+    update(DIMG_ID, { ...arriba, datos:{ ...d, grupo:gid, grupos:{ ...(d.grupos || {}), [gid]:{ ...g, pares, sel } }, img:p.a, img2:p.b, titulo:g.titulo || '', ...extra } });
+  },
+  // Elegir otro par o cambiar de juego esconde la imagen: así nunca se ve antes de la cuenta
+  ocultarSiVisible(){ this.cerrarRonda(); return estado[DIMG_ID] && estado[DIMG_ID].visible ? { visible:false } : {}; },
+  // ...y da por terminada la ronda anterior: deja de contar respuestas y quita su cartel
+  cerrarRonda(){
+    const d = Dib.datos();
+    if(!d.ronda || (d.fase === 'fin' && d.oc)) return;
+    Dib.parar();
+    update(DIB_ID, { datos:{ ...d, fase:'fin', oc:ahora() } });
+  },
+  cambiarGrupo(gid){
+    if(gid === this.gid()) return;
+    const d = this.datos(), g = this.grupo(gid), pares = this.pares(gid), p = pares[this.sel(gid)] || { a:'', b:'' };
+    const ocultar = this.ocultarSiVisible();
+    update(DIMG_ID, { ...ocultar, datos:{ ...d, grupo:gid, img:p.a, img2:p.b, titulo:g.titulo || '', rev:false } });
+  },
+  guardarTitulo(t){
+    const d = this.datos(), gid = this.gid();
+    update(DIMG_ID, { datos:{ ...d, grupo:gid, grupos:{ ...(d.grupos || {}), [gid]:{ ...this.grupo(gid), titulo:t } }, titulo:t } });
+  },
   // Respuestas del par elegido (se guardan en Firebase con el par)
   guardarRespuestas(texto){
-    let pares = this.pares(), sel = Number(this.datos().sel) || 0;
+    let pares = this.pares(), sel = this.sel();
     if(!pares.length){ pares = [{ a:'', b:'', r:'' }]; sel = 0; }
     if(pares[sel].r === texto) return;
     pares[sel] = { ...pares[sel], r:String(texto).slice(0, 2000) };
@@ -2007,7 +2042,7 @@ const DImg = {
   ronda(){
     const ta = document.querySelector(`.tarjeta[data-el="${DIMG_ID}"] [data-dimg-resp]`);
     if(ta && ta._t){ clearTimeout(ta._t); ta._t = 0; this.guardarRespuestas(ta.value); }
-    const d = this.datos(), pares = this.pares(), p = pares[Number(d.sel) || 0];
+    const d = this.datos(), p = this.pares()[this.sel()];
     if(!d.img) return toast('Primero sube la imagen de la izquierda');
     const palabras = leerPalabras(p ? p.r : '');
     if(!palabras.length){ toast('Escribe las respuestas de esta imagen'); if(ta) ta.focus(); return; }
@@ -2016,24 +2051,23 @@ const DImg = {
     if(!inicio) return;
     update(DIMG_ID, { visible:true, datos:{ ...this.datos(), rev:false, inicio } });
   },
-  // guarda pares y deja img/img2 apuntando al par elegido
-  guardar(pares, sel, extra = {}){
-    sel = Math.max(0, Math.min(sel, pares.length - 1));
-    const p = pares[sel] || { a:'', b:'' };
-    update(DIMG_ID, { datos:{ ...this.datos(), pares, sel, img:p.a, img2:p.b, ...extra } });
-  },
-  // Las imágenes sueltas de la versión anterior pasan a ser pares con solo la primera imagen
+  // Formatos anteriores: una sola lista de pares (va a DBD) o imágenes sueltas (también a DBD)
   migrar(){
     if(this.migrado) return;
     this.migrado = true;
     const d = this.datos();
-    if(Array.isArray(d.pares) || (d.pares && typeof d.pares === 'object')) return;
-    const sueltas = imagenesDibujo().map(([k]) => ({ a:k, b:'' }));
-    if(!sueltas.length) return;
-    const i = Math.max(0, sueltas.findIndex(p => p.a === d.img));
-    this.guardar(sueltas, i);
+    if(d.grupos) return;
+    let pares = lista(d.pares).map(limpiarPar);
+    if(!pares.length) pares = imagenesDibujo().map(([k]) => ({ a:k, b:'', r:'' }));
+    if(!pares.length) return;
+    const sel = Math.max(0, Math.min(Number(d.sel) || 0, pares.length - 1)), p = pares[sel];
+    update(DIMG_ID, { datos:{ ...d, grupo:'dbd', grupos:{ dbd:{ pares, sel, titulo:d.titulo || '' } }, pares:null, sel:null, img:p.a, img2:p.b } });
   },
-  enUso(id, pares){ return pares.some(p => p.a === id || p.b === id); },
+  // una imagen se borra solo si ningún par de ningún juego la usa
+  enUso(id, paresActuales){
+    if(paresActuales.some(p => p.a === id || p.b === id)) return true;
+    return DIMG_GRUPOS.some(([k]) => k !== this.gid() && this.pares(k).some(p => p.a === id || p.b === id));
+  },
   borrarImagen(id, pares){
     if(!id || !imagenes[id] || this.enUso(id, pares)) return;
     delete imagenes[id];
@@ -2046,7 +2080,7 @@ const DImg = {
       const r = await procesarArchivo(f), id = idAleatorio(8);
       imagenes[id] = { nombre:f.name.replace(/\.[^.]+$/, '').slice(0, 40), src:r.src, ancho:r.ancho, alto:r.alto, origen:'dibujo', creado:Date.now() };
       await Sync.escribir({ [`imagenes/${id}`]:imagenes[id] });
-      let pares = this.pares(), sel = Number(this.datos().sel) || 0;
+      let pares = this.pares(), sel = this.sel();
       if(!pares.length){ pares = [{ a:'', b:'', r:'' }]; sel = 0; }
       const viejo = pares[sel][k];
       pares[sel] = { ...pares[sel], [k]:id };
@@ -2056,7 +2090,7 @@ const DImg = {
     }catch(err){ if(est) est.textContent = ''; toast(`${f.name}: ${err.message}`); }
   },
   quitar(k){
-    const pares = this.pares(), sel = Number(this.datos().sel) || 0;
+    const pares = this.pares(), sel = this.sel();
     if(!pares[sel] || !pares[sel][k]) return;
     if(!confirm('¿Quitar esta imagen?')) return;
     const viejo = pares[sel][k];
@@ -2064,22 +2098,26 @@ const DImg = {
     this.guardar(pares, sel, k === 'a' && estado[DIMG_ID].visible ? { rev:false } : {});
     this.borrarImagen(viejo, pares);
   },
-  elegir(i){ const pares = this.pares(); if(pares[i]) this.guardar(pares, i, { rev:false }); },
+  elegir(i){
+    const pares = this.pares();
+    if(!pares[i]) return;
+    this.guardar(pares, i, { rev:false }, i === this.sel() ? {} : this.ocultarSiVisible());
+  },
   nuevo(){
     const pares = this.pares();
     const ult = pares[pares.length - 1];
     if(ult && !ult.a && !ult.b && !ult.r) return this.elegir(pares.length - 1);
     pares.push({ a:'', b:'', r:'' });
-    this.guardar(pares, pares.length - 1, { rev:false });
+    this.guardar(pares, pares.length - 1, { rev:false }, this.ocultarSiVisible());
   },
   borrarPar(i){
     const pares = this.pares(); if(!pares[i]) return;
     if((pares[i].a || pares[i].b || pares[i].r) && !confirm('¿Borrar este par de imágenes y sus respuestas?')) return;
+    const eraSel = i === this.sel();
     const [quitado] = pares.splice(i, 1);
-    let sel = Number(this.datos().sel) || 0;
+    let sel = this.sel();
     if(i < sel || sel >= pares.length) sel = Math.max(0, sel - 1);
-    if(!pares.length) update(DIMG_ID, { visible:false, datos:{ ...this.datos(), pares:[], sel:0, img:'', img2:'', rev:false } });
-    else this.guardar(pares, sel, i === Number(this.datos().sel) ? { rev:false } : {});
+    this.guardar(pares, sel, eraSel ? { rev:false } : {}, eraSel || !pares.length ? this.ocultarSiVisible() : {});
     this.borrarImagen(quitado.a, pares); this.borrarImagen(quitado.b, pares);
   },
   alternar(){
@@ -2102,7 +2140,13 @@ const DImg = {
 };
 function pintarDibImg(t, e){
   DImg.migrar();
-  const d = e.datos || {}, o = e.opc || {}, pares = DImg.pares(), sel = Number(d.sel) || 0, p = pares[sel] || { a:'', b:'', r:'' };
+  const d = e.datos || {}, o = e.opc || {}, gid = DImg.gid(), pares = DImg.pares(), sel = DImg.sel(), p = pares[sel] || { a:'', b:'', r:'' };
+  // pestañas de juego, con cuántos pares tiene cada una
+  t.querySelectorAll('[data-dimg-grupo]').forEach(b => {
+    const k = b.dataset.dimgGrupo, n = DImg.pares(k).length;
+    b.classList.toggle('activo', k === gid);
+    b.querySelector('small').textContent = n ? `${n} ${n === 1 ? 'par' : 'pares'}` : 'Vacío';
+  });
   // las dos casillas del par elegido
   ['a', 'b'].forEach(k => {
     const area = t.querySelector(`[data-slot-area="${k}"]`), img = area.querySelector('img'), id = p[k], im = id && imagenes[id];
@@ -2114,11 +2158,11 @@ function pintarDibImg(t, e){
     const visible = e.visible && ((k === 'a' && !d.rev) || (k === 'b' && d.rev && d.img2));
     t.querySelector(`[data-slot-box="${k}"]`).classList.toggle('en-pantalla', !!visible);
   });
-  // pares de la misma temática
+  // pares del juego activo
   const cont = t.querySelector('[data-dimg-pares]');
   const mini = id => { const im = id && imagenes[id]; return `<span>${im ? `<img src="${esc(im.src)}" alt="" loading="lazy">` : 'vacía'}</span>`; };
   const nResp = x => leerPalabras(x.r).length;
-  const firma = pares.map(x => x.a + ':' + x.b + ':' + !!imagenes[x.a] + !!imagenes[x.b] + ':' + nResp(x)).join(',') + '|' + sel;
+  const firma = gid + '|' + pares.map(x => x.a + ':' + x.b + ':' + !!imagenes[x.a] + !!imagenes[x.b] + ':' + nResp(x)).join(',') + '|' + sel;
   if(cont._firma !== firma){
     cont._firma = firma;
     cont.innerHTML = pares.map((x, i) => `<div class="dimg-item">
@@ -2127,7 +2171,7 @@ function pintarDibImg(t, e){
       + '<button class="dimg-nuevo" data-dimg-nuevo>+ Nuevo par</button>';
   }
   const tit = t.querySelector('[data-dimg-titulo]');
-  if(tit !== document.activeElement && !tit._t) tit.value = d.titulo || '';
+  if(tit !== document.activeElement && !tit._t) tit.value = DImg.grupo().titulo || '';
   const resp = t.querySelector('[data-dimg-resp]');
   if(resp !== document.activeElement && !resp._t) resp.value = p.r || '';
   const nr = leerPalabras(resp.value).length;
@@ -2219,7 +2263,7 @@ const Dib = {
   // Devuelve la hora del servidor en que empieza la cuenta, o 0 si se canceló.
   empezar(palabras, texto, conImagen){
     const d = this.datos();
-    if(d.fase === 'dibujando' && !confirm('Hay una ronda en curso. ¿Empezar una nueva?')) return 0;
+    // una ronda nueva da por terminada la anterior, sin preguntar
     if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
     const ronda = idAleatorio(8), inicio = ahora() + 600;
     this.local = { ronda, palabras, texto: conImagen ? this.local.texto : texto, img:!!conImagen };
@@ -3055,7 +3099,9 @@ function accion(id, act){
       if(tipo === 'horoscopo' && !(estado[id].datos && estado[id].datos.h)) return toast('Primero elige un signo');
       return update(id, { visible:true });
     }
-    case 'ocultar': return update(id, { visible:false });
+    case 'ocultar':
+      if(id === DIMG_ID) DImg.cerrarRonda();     // esconder la imagen también termina su ronda
+      return update(id, { visible:false });
     case 'girar': return girar(id);
     case 'mezclar': return mezclarLista(id);
     case 'quitarGanador': return quitarGanador(id);
@@ -3113,6 +3159,8 @@ function eventos(){
       if((estado[id].vot || {}).fase === 'votando') return toast('No se puede cambiar durante la votación');
       return update(id, { opc:{ ...(estado[id].opc || {}), modo:pfm.dataset.pfModo } });
     }
+    const dgr = ev.target.closest('[data-dimg-grupo]');
+    if(dgr) return DImg.cambiarGrupo(dgr.dataset.dimgGrupo);
     const dpar = ev.target.closest('[data-dimg-par]');
     if(dpar) return DImg.elegir(Number(dpar.dataset.dimgPar));
     const dpdel = ev.target.closest('[data-dimg-pardel]');
@@ -3258,7 +3306,7 @@ function eventos(){
     if(ev.target.matches('[data-dimg-titulo]')){
       const inp = ev.target;
       clearTimeout(inp._t);
-      inp._t = setTimeout(() => { inp._t = 0; update(DIMG_ID, { datos:{ ...(estado[DIMG_ID].datos || {}), titulo:inp.value.trim() } }); }, 300);
+      inp._t = setTimeout(() => { inp._t = 0; DImg.guardarTitulo(inp.value.trim()); }, 300);
       return;
     }
     if(ev.target.matches('[data-txt]')){
