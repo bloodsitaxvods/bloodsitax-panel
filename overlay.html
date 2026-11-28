@@ -269,6 +269,16 @@ body.guias .el{outline:3px dashed #FF007F}
 .horo-grid p{margin:0;font-size:calc(var(--k)*20px);line-height:1.4;color:rgba(255,255,255,.9)}
 .horo-suerte{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 26px;font-size:calc(var(--k)*19px);color:rgba(255,255,255,.85)}
 .horo-suerte b{color:#FFC2DC;margin-right:6px}
+/* Formato diario: amor con pareja / sin pareja, trabajo, salud y consejo */
+.horo h3{margin:0 0 calc(var(--k)*8px);font-size:calc(var(--k)*19px);font-weight:800;color:#FFC2DC;text-transform:uppercase;letter-spacing:.06em}
+.horo-amor{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--k)*20px)}
+.horo-amor h4,.horo-dos h4{margin:0 0 6px;font-size:calc(var(--k)*16px);font-weight:800;color:#FF7FBF;text-transform:uppercase;letter-spacing:.05em}
+.horo-amor p,.horo-dos p{margin:0;font-size:calc(var(--k)*19px);line-height:1.4;color:rgba(255,255,255,.92)}
+.horo-dos{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--k)*20px)}
+.horo-dos h4{color:#FFC2DC}
+.horo-consejo{margin:0;padding:calc(var(--k)*12px) calc(var(--k)*18px);border-left:4px solid #FF007F;background:rgba(255,0,127,.14);
+  font-size:calc(var(--k)*21px);font-weight:700;line-height:1.35}
+.horo-consejo b{display:block;font-size:calc(var(--k)*15px);color:#FFC2DC;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 
 
 /* ---------- Votaciones: diseño ---------- */
@@ -1423,9 +1433,18 @@ function fechaBonita(f){
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(f || '');
   return m ? `${+m[3]} de ${MESES[+m[2] - 1]} de ${m[1]}` : (f || '');
 }
+const DIAS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fechaBonita(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if(!m) return iso || '';
+  const f = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  const dia = DIAS_ES[f.getUTCDay()];
+  return `${dia[0].toUpperCase() + dia.slice(1)} ${+m[3]} de ${MESES_ES[+m[2] - 1]}`;
+}
 function dibujarHoroscopo(c, e){
   const d = e.datos || {}, h = d.h;
   if(!h){ tarjetaPrueba(c, e); return; }
+  if(h.amorP || h.amorS || h.consejo){ dibujarHoroscopoDiario(c, d, h); return; }
   const sec = (t, x) => x ? `<section><h4>${t}</h4><p>${esc(x)}</p></section>` : '';
   const suerte = [
     h.numeros && lista(h.numeros).length ? `<span><b>Números</b>${esc(lista(h.numeros).join(', '))}</span>` : '',
@@ -1442,6 +1461,22 @@ function dibujarHoroscopo(c, e){
   // Si el texto del día es más largo, reduce la letra hasta que quepa
   const el = c.firstChild;
   for(let k = 1; el.scrollHeight > el.clientHeight + 1 && k > .6; ){ k -= .05; el.style.setProperty('--k', k.toFixed(2)); }
+}
+
+// Formato del generador diario: Amor (con pareja / sin pareja), Dinero/Trabajo, Salud/Bienestar, Consejo y Números
+function dibujarHoroscopoDiario(c, d, h){
+  const p = (t, x) => x ? `<div><h4>${t}</h4><p>${esc(x)}</p></div>` : '';
+  const nums = lista(h.numeros || []);
+  c.innerHTML = `<div class="horo">
+    <div class="horo-cab"><div><div class="horo-signo">${esc(d.signo)}</div></div>
+      ${d.fecha ? `<div class="horo-clave">${esc(fechaBonita(d.fecha))}</div>` : ''}</div>
+    ${h.amorP || h.amorS ? `<section><h3>Amor</h3><div class="horo-amor">${p('Si tienes pareja', h.amorP)}${p('Si no tienes pareja', h.amorS)}</div></section>` : ''}
+    <div class="horo-dos">${p('Dinero / Trabajo', h.dinero)}${p('Salud / Bienestar', h.salud)}</div>
+    ${h.consejo ? `<p class="horo-consejo"><b>Consejo del día</b>${esc(h.consejo)}</p>` : ''}
+    ${nums.length ? `<div class="horo-suerte"><span><b>Números de la suerte</b>${esc(nums.join(', '))}</span></div>` : ''}
+  </div>`;
+  const el = c.firstChild;
+  for(let k = 1; el.scrollHeight > el.clientHeight + 1 && k > .45; ){ k -= .04; el.style.setProperty('--k', k.toFixed(2)); }
 }
 
 /* ---------- Tipos de elemento ---------- */

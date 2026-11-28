@@ -1,0 +1,12 @@
+{
+  "name": "horoscopo-bloodsitax",
+  "private": true,
+  "type": "module",
+  "description": "Genera el horóscopo diario de BLOODSITAX (12 signos) con Gemini y el cielo real del día",
+  "scripts": {
+    "generar": "node generar.mjs"
+  },
+  "dependencies": {
+    "astronomy-engine": "^2.1.19"
+  }
+}

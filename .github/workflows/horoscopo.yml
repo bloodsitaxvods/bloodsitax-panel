@@ -1,0 +1,50 @@
+name: Horóscopo diario
+
+on:
+  schedule:
+    # 10:37 UTC = 5:37 a. m. en Lima, todos los días
+    - cron: '37 10 * * *'
+  workflow_dispatch:
+    inputs:
+      forzar:
+        description: 'Rehacer el de hoy aunque ya exista'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: horoscopo
+  cancel-in-progress: false
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias
+        working-directory: horoscopo
+        run: npm install --no-audit --no-fund
+
+      - name: Generar horóscopo
+        working-directory: horoscopo
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+        run: node generar.mjs ${{ inputs.forzar && '--forzar' || '' }}
+
+      - name: Subir al repo
+        run: |
+          git config user.name "horoscopo-bot"
+          git config user.email "horoscopo-bot@users.noreply.github.com"
+          git add horoscopo/hoy.json horoscopo/historial.json
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "Horóscopo del $(TZ=America/Lima date +%F)"
+          git pull --rebase origin main
+          git push
