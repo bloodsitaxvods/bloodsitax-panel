@@ -27,7 +27,7 @@ const MODELOS = (process.env.GEMINI_MODEL || 'gemini-flash-latest,gemini-flash-l
 
 export const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
 const SECCIONES = ['amor_pareja','amor_soltero','dinero_trabajo','salud','consejo'];
-const LARGO = { amor_pareja:[45,70], amor_soltero:[45,70], dinero_trabajo:[35,60], salud:[35,60], consejo:[8,22] };
+const LARGO = { amor_pareja:[55,75], amor_soltero:[50,65], dinero_trabajo:[45,60], salud:[45,65], consejo:[10,28] };
 
 /* ---------- Argumentos ---------- */
 const args = Object.fromEntries(process.argv.slice(2).map(a => { const [k, v] = a.replace(/^--/, '').split('='); return [k, v ?? true]; }));
@@ -102,6 +102,35 @@ const TEMAS = {
     'la digestión y lo que comes de noche', 'un chequeo que vienes posponiendo', 'cuidar tu energía emocional', 'reírte más', 'una caminata sin el celular', 'darte permiso de no hacer nada', 'la piel y el cuidado personal']
 };
 
+/* ---------- Formas de escribir cada sección (para que no todos suenen igual) ---------- */
+const FORMAS = {
+  texto: [
+    'predice un suceso concreto de hoy ("hoy vas a...") y termina con una invitación a actuar',
+    'abre con una reflexión general sobre la vida o el amor y baja a un consejo directo',
+    'usa una metáfora cotidiana o de la naturaleza (estaciones, fuego, cosecha, una casa, un puente) y luego da una orden clara',
+    'abre con una pregunta retórica al lector y luego responde con consejo',
+    'describe un problema que el lector viene cargando, explica por qué sigue ahí y propone qué hacer hoy',
+    'usa un contraste o repetición ("no se trata de..., sino de...") y cierra con una frase redonda',
+    'empieza reconociendo algo bueno del lector y luego le pide un paso más',
+    'da una advertencia firme, sin miedo, y deja una salida concreta'
+  ],
+  consejo: [
+    'un aforismo corto y propio',
+    'un ejercicio concreto con un número ("por cada..., piensa en tres...")',
+    'un pequeño ritual sencillo de hacer hoy',
+    'un contraste "no X, sino Y"',
+    'una advertencia breve con su razón',
+    'una orden breve seguida de lo que vas a ganar'
+  ]
+};
+function formasDelDia(signo){
+  const r = azar(`forma|${FECHA}|${signo}${SAL}`), f = {};
+  for(const sec of SECCIONES) { const b = sec === 'consejo' ? FORMAS.consejo : FORMAS.texto; f[sec] = b[Math.floor(r() * b.length)]; }
+  // La mitad de los días, salud habla del bienestar emocional en vez del cuerpo
+  f.salud_enfoque = r() < .45 ? 'bienestar emocional (soltar, autoestima, apoyo de otros)' : 'cuerpo y hábitos (dormir, comer, moverse, postura)';
+  return f;
+}
+
 /* ---------- Números de la suerte (los pone el código, no la IA) ---------- */
 function numeros(signo, fecha, ayer){
   for(let intento = 0; ; intento++){
@@ -157,7 +186,11 @@ function clave(){
   try{ return fs.readFileSync(path.join(DIR, 'clave.txt'), 'utf8').trim(); }catch{ return ''; }
 }
 const espera = ms => new Promise(r => setTimeout(r, ms));
+// Si en 8 minutos Gemini no terminó, se deja de insistir y sale el banco de frases
+const INICIO = Date.now(), LIMITE_MS = 8 * 60000;
+const sinTiempo = () => Date.now() - INICIO > LIMITE_MS;
 
+let modeloBueno = '';
 async function gemini(prompt){
   const key = clave(); if(!key) throw new Error('No hay GEMINI_API_KEY ni clave.txt');
   const esquema = { type:'ARRAY', items:{ type:'OBJECT', properties:{
@@ -165,24 +198,33 @@ async function gemini(prompt){
     dinero_trabajo:{ type:'STRING' }, salud:{ type:'STRING' }, consejo:{ type:'STRING' } },
     required:['signo', ...SECCIONES] } };
   let ultimo;
-  for(const modelo of MODELOS){
-    for(let intento = 0; intento < 3; intento++){
+  const orden = modeloBueno ? [modeloBueno, ...MODELOS.filter(m => m !== modeloBueno)] : MODELOS;
+  for(const modelo of orden){
+    console.log(`  Pidiendo a Gemini (${modelo})...`);
+    for(let intento = 0; intento < 2; intento++){
+      if(sinTiempo()) throw new Error('se acabó el tiempo (8 minutos)');
       try{
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
           method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key },
+          signal: AbortSignal.timeout(120000), // si en 2 minutos no responde, se pasa al siguiente intento
           body: JSON.stringify({ contents:[{ role:'user', parts:[{ text: prompt }] }],
-            generationConfig:{ temperature:1.05, topP:.95, responseMimeType:'application/json', responseSchema: esquema } })
+            generationConfig:{ temperature:1.05, topP:.95, maxOutputTokens:16384, responseMimeType:'application/json', responseSchema: esquema } })
         });
         const txt = await r.text();
-        if(r.status === 429 || r.status >= 500){ ultimo = new Error(`${modelo}: HTTP ${r.status}`); await espera(15000 * (intento + 1)); continue; }
-        if(!r.ok){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 300)}`); break; }
+        if(r.status === 429 || r.status >= 500){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 200)}`); console.log('  ' + ultimo.message); await espera(10000 * (intento + 1)); continue; }
+        if(!r.ok){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 300)}`); console.log('  ' + ultimo.message); break; }
         const j = JSON.parse(txt);
         const salida = j.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
         const lista = JSON.parse(salida);
         if(!Array.isArray(lista)) throw new Error('respuesta sin lista');
         console.log(`  Gemini respondió (${modelo})`);
+        modeloBueno = modelo; // las siguientes peticiones van directo a este modelo
         return lista;
-      }catch(e){ ultimo = e; await espera(3000); }
+      }catch(e){
+        ultimo = e; console.log(`  ${modelo}: ${e.name === 'TimeoutError' ? 'no respondió en 2 minutos' : e.message}`);
+        if(e.name === 'TimeoutError') break; // si se cuelga, probar de una vez con el otro modelo
+        await espera(3000);
+      }
     }
   }
   throw ultimo || new Error('Gemini no respondió');
@@ -196,7 +238,10 @@ Formato de cada signo:
 - salud: ${LARGO.salud.join(' a ')} palabras. Bienestar físico y emocional, directo, con una acción sencilla. Nada de consejos médicos ni diagnósticos.
 - consejo: una sola frase de ${LARGO.consejo.join(' a ')} palabras, memorable, que no sea un refrán conocido.
 Reglas:
-- Usa el cielo real que te doy como inspiración (dónde cae la Luna, el Sol, Venus o Marte para ese signo), pero sin tecnicismos: como mucho menciona un astro por sección y no en todas.
+- Respeta los largos: cada sección de texto es un párrafo completo de 3 a 4 oraciones. Los textos más cortos se rechazan.
+- Usa el cielo real que te doy como inspiración de fondo (qué área de la vida activa la Luna, el Sol, Venus o Marte para ese signo), pero casi sin nombrarlo: como máximo una mención a un astro o a "los astros" por signo, y en varios signos ninguna.
+- Cada sección necesita al menos un detalle concreto y cotidiano (una cena, una reunión familiar, cambiar de ruta al trabajo, un mensaje, una mascota, un curso, una caminata), nada de frases que sirvan para cualquiera.
+- Sigue la forma de escribir que te indico para cada sección; así cada signo suena distinto.
 - Cada signo debe sentirse distinto: distintas situaciones, imágenes y verbos. No copies estructuras entre signos.
 - Mezcla días buenos, retadores y tranquilos; no todo es positivo, pero siempre deja una salida.
 - Prohibido usar estas muletillas: "hoy es un día", "la energía fluye", "el universo conspira", "los astros te sonríen", "vibra", "manifestar", "date un respiro", "no tengas miedo", "todo pasa por algo". Usa "los astros" como máximo en dos signos en total.
@@ -207,14 +252,15 @@ function armarPrompt(cieloHoy, pedidos, extra = ''){
   const global = `Fecha: ${FECHA}. Cielo del día: Sol en ${pos.Sol}, Luna en ${pos.Luna} (${cieloHoy.fase}${cieloHoy.luna_cambia ? '; ' + cieloHoy.luna_cambia : ''}), ` +
     `Mercurio en ${pos.Mercurio}, Venus en ${pos.Venus}, Marte en ${pos.Marte}, Júpiter en ${pos['Júpiter']}, Saturno en ${pos.Saturno}.` +
     (cieloHoy.retrogrados.length ? ` Retrógrados: ${cieloHoy.retrogrados.join(', ')}.` : ' Ningún planeta personal retrógrado.');
-  const bloques = pedidos.map(({ signo, temas }) => {
+  const bloques = pedidos.map(({ signo, temas, formas }) => {
     const c = n => `${n} en su casa ${casa(pos[n], signo)} (${CASAS[casa(pos[n], signo)]})`;
     const prev = recientes.slice(0, 14).map(d => d.signos[signo]).filter(Boolean);
     const inicios = [...new Set(prev.flatMap(h => SECCIONES.filter(s => s !== 'consejo').map(s => inicio(h[s]))).filter(Boolean))].slice(0, 40);
     const consejos = prev.map(h => h.consejo).filter(Boolean).slice(0, 14);
     return `### ${signo}
 Para ${signo}: ${c('Luna')}; ${c('Sol')}; ${c('Venus')}; ${c('Marte')}.
-Temas de hoy: pareja -> ${temas.amor_pareja}; soltería -> ${temas.amor_soltero}; trabajo -> ${temas.dinero_trabajo}; salud -> ${temas.salud}.
+Temas de hoy: pareja -> ${temas.amor_pareja}; soltería -> ${temas.amor_soltero}; trabajo -> ${temas.dinero_trabajo}; salud -> ${temas.salud} (enfoque: ${formas.salud_enfoque}).
+Forma de escribir: pareja -> ${formas.amor_pareja}; soltería -> ${formas.amor_soltero}; trabajo -> ${formas.dinero_trabajo}; salud -> ${formas.salud}; consejo -> ${formas.consejo}.
 ${inicios.length ? 'No empieces ninguna sección con: ' + inicios.map(x => `"${x}"`).join(', ') + '.' : ''}
 ${consejos.length ? 'Consejos ya usados (no los repitas ni parafrasees): ' + consejos.map(x => `"${x}"`).join(' | ') : ''}`;
   }).join('\n\n');
@@ -230,15 +276,21 @@ async function main(){
   const cieloHoy = cielo(FECHA);
   console.log(`  Cielo: Sol en ${cieloHoy.posiciones.Sol}, Luna en ${cieloHoy.posiciones.Luna} (${cieloHoy.fase})`);
 
-  const pedidos = SIGNOS.map(signo => ({ signo, temas: temasDelDia(signo) }));
+  const pedidos = SIGNOS.map(signo => ({ signo, temas: temasDelDia(signo), formas: formasDelDia(signo) }));
   const resultado = {};
   let fuente = 'gemini';
 
   if(!args.respaldo){
     try{
       let pendientes = pedidos, extra = '';
-      for(let ronda = 0; ronda < 3 && pendientes.length; ronda++){
-        const lista = await gemini(armarPrompt(cieloHoy, pendientes, extra));
+      for(let ronda = 0; ronda < 3 && pendientes.length && !sinTiempo(); ronda++){
+        // De 4 en 4: con los 12 juntos la IA tiende a escribir corto
+        const lista = [];
+        for(let i = 0; i < pendientes.length && !sinTiempo(); i += 4){
+          const grupo = pendientes.slice(i, i + 4);
+          try{ lista.push(...await gemini(armarPrompt(cieloHoy, grupo, extra))); }
+          catch(e){ console.log(`  Falló el grupo ${grupo.map(g => g.signo).join(', ')}: ${e.message}`); }
+        }
         const fallidos = [], notas = [];
         for(const p of pendientes){
           const h = lista.find(x => sinAcentos(x.signo) === sinAcentos(p.signo));
