@@ -1998,7 +1998,7 @@ const DIMG_GRUPOS = [['marvel', 'Marvel'], ['dbd', 'DBD'], ['random', 'Random']]
 const imagenesDibujo = () => Object.entries(imagenes).filter(([, im]) => im && im.origen === 'dibujo').sort((a, b) => (a[1].creado || 0) - (b[1].creado || 0));
 const limpiarPar = p => ({ a:(p && p.a) || '', b:(p && p.b) || '', r:(p && p.r) || '' });
 const DImg = {
-  migrado:false,
+  migrando:false,
   datos(){ return (estado[DIMG_ID] && estado[DIMG_ID].datos) || {}; },
   gid(){ const g = this.datos().grupo; return DIMG_GRUPOS.some(([k]) => k === g) ? g : 'marvel'; },
   grupo(gid = this.gid()){ return ((this.datos().grupos || {})[gid]) || {}; },
@@ -2051,17 +2051,22 @@ const DImg = {
     if(!inicio) return;
     update(DIMG_ID, { visible:true, datos:{ ...this.datos(), rev:false, inicio } });
   },
-  // Formatos anteriores: una sola lista de pares (va a DBD) o imágenes sueltas (también a DBD)
+  // Formato anterior: una sola lista de pares (datos.pares) -> se pasa a DBD.
+  // Se revisa cada vez que se pinta (no solo al abrir), porque al abrir el panel los datos de
+  // Firebase todavía no han llegado. Es seguro repetirlo: después de pasarlos, datos.pares queda vacío.
   migrar(){
-    if(this.migrado) return;
-    this.migrado = true;
-    const d = this.datos();
-    if(d.grupos) return;
-    let pares = lista(d.pares).map(limpiarPar);
-    if(!pares.length) pares = imagenesDibujo().map(([k]) => ({ a:k, b:'', r:'' }));
-    if(!pares.length) return;
-    const sel = Math.max(0, Math.min(Number(d.sel) || 0, pares.length - 1)), p = pares[sel];
-    update(DIMG_ID, { datos:{ ...d, grupo:'dbd', grupos:{ dbd:{ pares, sel, titulo:d.titulo || '' } }, pares:null, sel:null, img:p.a, img2:p.b } });
+    const d = this.datos(), viejos = lista(d.pares).map(limpiarPar).filter(p => p.a || p.b || p.r);
+    if(!viejos.length || this.migrando) return;
+    this.migrando = true;
+    const g = (d.grupos || {}).dbd || {}, actuales = lista(g.pares).map(limpiarPar);
+    const ya = new Set(actuales.map(p => p.a + '|' + p.b));
+    const pares = [...actuales, ...viejos.filter(p => !ya.has(p.a + '|' + p.b))];
+    const sel = actuales.length ? (Number(g.sel) || 0) : Math.max(0, Math.min(Number(d.sel) || 0, pares.length - 1));
+    const p = pares[sel] || { a:'', b:'' };
+    update(DIMG_ID, { datos:{ ...d, grupo:'dbd', grupos:{ ...(d.grupos || {}), dbd:{ ...g, pares, sel, titulo:g.titulo || d.titulo || '' } },
+      pares:null, sel:null, img:p.a, img2:p.b, titulo:g.titulo || d.titulo || '', rev:false } });
+    toast(`Se recuperaron ${viejos.length} pares en DBD`);
+    setTimeout(() => { this.migrando = false; }, 1500);
   },
   // una imagen se borra solo si ningún par de ningún juego la usa
   enUso(id, paresActuales){
