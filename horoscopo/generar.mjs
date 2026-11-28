@@ -27,6 +27,8 @@ const MODELOS = (process.env.GEMINI_MODEL || 'gemini-flash-latest,gemini-flash-l
 
 export const SIGNOS = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
 const SECCIONES = ['amor_pareja','amor_soltero','dinero_trabajo','salud','consejo'];
+// Arranques que la IA repite mucho; si sale uno, se pide de nuevo
+const ARRANQUES_GASTADOS = ['Hoy vas a', 'Hoy es un día', 'Has demostrado', 'Has estado cargando', 'Llevas semanas', 'Cuidado con', '¿Por qué sigues', '¿Por qué insistes', 'No se trata de', 'Una relación es como', 'Tienes una capacidad'];
 const LARGO = { amor_pareja:[55,75], amor_soltero:[50,65], dinero_trabajo:[45,60], salud:[45,65], consejo:[10,28] };
 
 /* ---------- Argumentos ---------- */
@@ -105,20 +107,20 @@ const TEMAS = {
 /* ---------- Formas de escribir cada sección (para que no todos suenen igual) ---------- */
 const FORMAS = {
   texto: [
-    'predice un suceso concreto de hoy ("hoy vas a...") y termina con una invitación a actuar',
-    'abre con una reflexión general sobre la vida o el amor y baja a un consejo directo',
-    'usa una metáfora cotidiana o de la naturaleza (estaciones, fuego, cosecha, una casa, un puente) y luego da una orden clara',
-    'abre con una pregunta retórica al lector y luego responde con consejo',
-    'describe un problema que el lector viene cargando, explica por qué sigue ahí y propone qué hacer hoy',
-    'usa un contraste entre dos ideas y cierra con una frase redonda (sin empezar con "No se trata de")',
-    'empieza reconociendo algo bueno del lector y luego le pide un paso más',
-    'da una advertencia firme, sin miedo, y deja una salida concreta'
+    'anuncia algo concreto que va a pasar hoy y termina invitando a actuar (sin empezar con "Hoy vas a")',
+    'abre con una idea general sobre la vida o las relaciones y baja a un consejo directo',
+    'construye la sección alrededor de una imagen o comparación original, distinta a la de los otros signos, y luego da una orden clara',
+    'abre con una pregunta al lector y luego responde con consejo',
+    'nombra un problema que el lector trae arrastrando y propone qué hacer hoy',
+    'contrapone dos ideas y cierra con una frase redonda',
+    'abre con algo bueno del lector, dicho con palabras propias, y luego le pide un paso más',
+    'da una advertencia firme sin asustar y deja una salida concreta'
   ],
   consejo: [
     'un aforismo corto y propio',
-    'un ejercicio concreto que incluya una cantidad o un tiempo (minutos, veces, cosas)',
-    'un pequeño ritual sencillo de hacer hoy',
-    'un contraste "no X, sino Y"',
+    'un ejercicio concreto con una cantidad o un tiempo, que no sea escribir en papel',
+    'un pequeño gesto o ritual sencillo para hoy',
+    'un contraste entre lo que conviene y lo que no',
     'una advertencia breve con su razón',
     'una orden breve seguida de lo que vas a ganar'
   ]
@@ -187,6 +189,7 @@ function problemas(signo, h, hoyOtros){
     const previos = recientes.flatMap(d => Object.values(d.signos).map(x => x[sec]).filter(Boolean));
     const otros = hoyOtros.map(x => x[sec]).filter(Boolean);
     if(sec !== 'consejo' && [...previos, ...otros].some(x => parecido(txt, x) > .18)) p.push(`${sec} se parece demasiado a uno anterior`);
+    if(ARRANQUES_GASTADOS.some(a => sinAcentos(txt).replace(/^[¿¡]/, '').startsWith(sinAcentos(a).replace(/^[¿¡]/, '')))) p.push(`${sec} empieza con una frase gastada`);
     const ini = palabras(txt).slice(0, 3).join(' ');
     if(ini && otros.some(x => palabras(x).slice(0, 3).join(' ') === ini)) p.push(`${sec} empieza igual que otro signo de hoy`);
     if(sec === 'consejo' && [...previos, ...otros].some(x => sinAcentos(x).trim() === sinAcentos(txt).trim() || parecido(txt, x) > .5)) p.push('el consejo ya se usó');
@@ -260,6 +263,11 @@ Reglas:
 - Mezcla días buenos, retadores y tranquilos; no todo es positivo, pero siempre deja una salida.
 - Prohibido usar estas muletillas: "hoy es un día", "la energía fluye", "el universo conspira", "los astros te sonríen", "vibra", "manifestar", "date un respiro", "no tengas miedo", "todo pasa por algo". Usa "los astros" como máximo en dos signos en total.
 - Ortografía correcta: las preguntas llevan ¿ y ?, y las exclamaciones ¡ y !.
+- Lenguaje neutro en género: a la pareja dile "tu pareja" o "esa persona", nunca "él", "ella", "mirarla" o "mirarlo"; y al lector no le pongas adjetivos con género ("cansado", "renovada"): usa frases como "con más energía" o "sin cansancio".
+- Habla siempre de tú al lector, en singular; nada de "nosotros" ni "vernos".
+- No menciones estaciones del año ni el clima (el público está en distintos países).
+- No empieces ninguna sección con estas frases gastadas: ${ARRANQUES_GASTADOS.map(x => `"${x}"`).join(', ')}.
+- En el consejo no pidas escribir en un papel o libreta, ni encender velas.
 - Nada de emojis, hashtags ni comillas raras. Solo texto.`;
 
 function armarPrompt(cieloHoy, pedidos, extra = ''){
@@ -304,8 +312,8 @@ async function main(){
         for(let i = 0; i < pendientes.length && !sinTiempo(); i += 4){
           const grupo = pendientes.slice(i, i + 4);
           // Para que los signos de hoy no arranquen igual, se le pasan los inicios que ya salieron
-          const ya = [...Object.values(resultado), ...lista].flatMap(h => SECCIONES.map(s => String(h[s] || '').trim().split(/\s+/).slice(0, 3).join(' ').replace(/[.,;:!?¡¿]+$/, ''))).filter(Boolean);
-          const evitar = ya.length ? `Otros signos de hoy ya empiezan así, no repitas esos arranques: ${[...new Set(ya)].map(x => `"${x}"`).join(', ')}.` : '';
+          const ya = [...Object.values(resultado), ...lista].flatMap(h => SECCIONES.filter(s => s !== 'consejo').map(s => String(h[s] || '').split(/(?<=[.!?])\s/)[0].split(/\s+/).slice(0, 18).join(' '))).filter(Boolean);
+          const evitar = ya.length ? `Otros signos de hoy ya usan estas aperturas e imágenes; no repitas sus arranques, metáforas ni situaciones:\n${[...new Set(ya)].map(x => '- ' + x).join('\n')}` : '';
           try{ lista.push(...await gemini(armarPrompt(cieloHoy, grupo, [extra, evitar].filter(Boolean).join('\n')))); }
           catch(e){ console.log(`  Falló el grupo ${grupo.map(g => g.signo).join(', ')}: ${e.message}`); }
         }
