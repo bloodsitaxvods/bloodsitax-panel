@@ -110,22 +110,34 @@ const FORMAS = {
     'usa una metáfora cotidiana o de la naturaleza (estaciones, fuego, cosecha, una casa, un puente) y luego da una orden clara',
     'abre con una pregunta retórica al lector y luego responde con consejo',
     'describe un problema que el lector viene cargando, explica por qué sigue ahí y propone qué hacer hoy',
-    'usa un contraste o repetición ("no se trata de..., sino de...") y cierra con una frase redonda',
+    'usa un contraste entre dos ideas y cierra con una frase redonda (sin empezar con "No se trata de")',
     'empieza reconociendo algo bueno del lector y luego le pide un paso más',
     'da una advertencia firme, sin miedo, y deja una salida concreta'
   ],
   consejo: [
     'un aforismo corto y propio',
-    'un ejercicio concreto con un número ("por cada..., piensa en tres...")',
+    'un ejercicio concreto que incluya una cantidad o un tiempo (minutos, veces, cosas)',
     'un pequeño ritual sencillo de hacer hoy',
     'un contraste "no X, sino Y"',
     'una advertencia breve con su razón',
     'una orden breve seguida de lo que vas a ganar'
   ]
 };
+// Se barajan las formas para el día y se reparten entre los 12 signos, así ninguna se usa más de dos veces por sección
+const BARAJAS = {};
+function baraja(sec){
+  if(BARAJAS[sec]) return BARAJAS[sec];
+  const base = sec === 'consejo' ? FORMAS.consejo : FORMAS.texto, r = azar(`baraja|${FECHA}|${sec}${SAL}`), mazo = [];
+  while(mazo.length < SIGNOS.length){
+    const m = [...base];
+    for(let i = m.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [m[i], m[j]] = [m[j], m[i]]; }
+    mazo.push(...m);
+  }
+  return BARAJAS[sec] = mazo;
+}
 function formasDelDia(signo){
-  const r = azar(`forma|${FECHA}|${signo}${SAL}`), f = {};
-  for(const sec of SECCIONES) { const b = sec === 'consejo' ? FORMAS.consejo : FORMAS.texto; f[sec] = b[Math.floor(r() * b.length)]; }
+  const r = azar(`forma|${FECHA}|${signo}${SAL}`), f = {}, i = SIGNOS.indexOf(signo);
+  for(const sec of SECCIONES) f[sec] = baraja(sec)[i];
   // La mitad de los días, salud habla del bienestar emocional en vez del cuerpo
   f.salud_enfoque = r() < .45 ? 'bienestar emocional (soltar, autoestima, apoyo de otros)' : 'cuerpo y hábitos (dormir, comer, moverse, postura)';
   return f;
@@ -175,6 +187,8 @@ function problemas(signo, h, hoyOtros){
     const previos = recientes.flatMap(d => Object.values(d.signos).map(x => x[sec]).filter(Boolean));
     const otros = hoyOtros.map(x => x[sec]).filter(Boolean);
     if(sec !== 'consejo' && [...previos, ...otros].some(x => parecido(txt, x) > .18)) p.push(`${sec} se parece demasiado a uno anterior`);
+    const ini = palabras(txt).slice(0, 3).join(' ');
+    if(ini && otros.some(x => palabras(x).slice(0, 3).join(' ') === ini)) p.push(`${sec} empieza igual que otro signo de hoy`);
     if(sec === 'consejo' && [...previos, ...otros].some(x => sinAcentos(x).trim() === sinAcentos(txt).trim() || parecido(txt, x) > .5)) p.push('el consejo ya se usó');
   }
   return p;
@@ -245,6 +259,7 @@ Reglas:
 - Cada signo debe sentirse distinto: distintas situaciones, imágenes y verbos. No copies estructuras entre signos.
 - Mezcla días buenos, retadores y tranquilos; no todo es positivo, pero siempre deja una salida.
 - Prohibido usar estas muletillas: "hoy es un día", "la energía fluye", "el universo conspira", "los astros te sonríen", "vibra", "manifestar", "date un respiro", "no tengas miedo", "todo pasa por algo". Usa "los astros" como máximo en dos signos en total.
+- Ortografía correcta: las preguntas llevan ¿ y ?, y las exclamaciones ¡ y !.
 - Nada de emojis, hashtags ni comillas raras. Solo texto.`;
 
 function armarPrompt(cieloHoy, pedidos, extra = ''){
@@ -288,7 +303,10 @@ async function main(){
         const lista = [];
         for(let i = 0; i < pendientes.length && !sinTiempo(); i += 4){
           const grupo = pendientes.slice(i, i + 4);
-          try{ lista.push(...await gemini(armarPrompt(cieloHoy, grupo, extra))); }
+          // Para que los signos de hoy no arranquen igual, se le pasan los inicios que ya salieron
+          const ya = [...Object.values(resultado), ...lista].flatMap(h => SECCIONES.map(s => String(h[s] || '').trim().split(/\s+/).slice(0, 3).join(' ').replace(/[.,;:!?¡¿]+$/, ''))).filter(Boolean);
+          const evitar = ya.length ? `Otros signos de hoy ya empiezan así, no repitas esos arranques: ${[...new Set(ya)].map(x => `"${x}"`).join(', ')}.` : '';
+          try{ lista.push(...await gemini(armarPrompt(cieloHoy, grupo, [extra, evitar].filter(Boolean).join('\n')))); }
           catch(e){ console.log(`  Falló el grupo ${grupo.map(g => g.signo).join(', ')}: ${e.message}`); }
         }
         const fallidos = [], notas = [];
