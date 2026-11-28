@@ -190,6 +190,7 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 const INICIO = Date.now(), LIMITE_MS = 8 * 60000;
 const sinTiempo = () => Date.now() - INICIO > LIMITE_MS;
 
+let modeloBueno = '';
 async function gemini(prompt){
   const key = clave(); if(!key) throw new Error('No hay GEMINI_API_KEY ni clave.txt');
   const esquema = { type:'ARRAY', items:{ type:'OBJECT', properties:{
@@ -197,27 +198,33 @@ async function gemini(prompt){
     dinero_trabajo:{ type:'STRING' }, salud:{ type:'STRING' }, consejo:{ type:'STRING' } },
     required:['signo', ...SECCIONES] } };
   let ultimo;
-  for(const modelo of MODELOS){
+  const orden = modeloBueno ? [modeloBueno, ...MODELOS.filter(m => m !== modeloBueno)] : MODELOS;
+  for(const modelo of orden){
     console.log(`  Pidiendo a Gemini (${modelo})...`);
-    for(let intento = 0; intento < 3; intento++){
+    for(let intento = 0; intento < 2; intento++){
       if(sinTiempo()) throw new Error('se acabó el tiempo (8 minutos)');
       try{
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
           method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key },
           signal: AbortSignal.timeout(120000), // si en 2 minutos no responde, se pasa al siguiente intento
           body: JSON.stringify({ contents:[{ role:'user', parts:[{ text: prompt }] }],
-            generationConfig:{ temperature:1.05, topP:.95, responseMimeType:'application/json', responseSchema: esquema } })
+            generationConfig:{ temperature:1.05, topP:.95, maxOutputTokens:16384, responseMimeType:'application/json', responseSchema: esquema } })
         });
         const txt = await r.text();
         if(r.status === 429 || r.status >= 500){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 200)}`); console.log('  ' + ultimo.message); await espera(10000 * (intento + 1)); continue; }
-        if(!r.ok){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 300)}`); break; }
+        if(!r.ok){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 300)}`); console.log('  ' + ultimo.message); break; }
         const j = JSON.parse(txt);
         const salida = j.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
         const lista = JSON.parse(salida);
         if(!Array.isArray(lista)) throw new Error('respuesta sin lista');
         console.log(`  Gemini respondió (${modelo})`);
+        modeloBueno = modelo; // las siguientes peticiones van directo a este modelo
         return lista;
-      }catch(e){ ultimo = e; console.log(`  ${modelo}: ${e.name === 'TimeoutError' ? 'no respondió en 2 minutos' : e.message}`); await espera(3000); }
+      }catch(e){
+        ultimo = e; console.log(`  ${modelo}: ${e.name === 'TimeoutError' ? 'no respondió en 2 minutos' : e.message}`);
+        if(e.name === 'TimeoutError') break; // si se cuelga, probar de una vez con el otro modelo
+        await espera(3000);
+      }
     }
   }
   throw ultimo || new Error('Gemini no respondió');
@@ -231,6 +238,7 @@ Formato de cada signo:
 - salud: ${LARGO.salud.join(' a ')} palabras. Bienestar físico y emocional, directo, con una acción sencilla. Nada de consejos médicos ni diagnósticos.
 - consejo: una sola frase de ${LARGO.consejo.join(' a ')} palabras, memorable, que no sea un refrán conocido.
 Reglas:
+- Respeta los largos: cada sección de texto es un párrafo completo de 3 a 4 oraciones. Los textos más cortos se rechazan.
 - Usa el cielo real que te doy como inspiración de fondo (qué área de la vida activa la Luna, el Sol, Venus o Marte para ese signo), pero casi sin nombrarlo: como máximo una mención a un astro o a "los astros" por signo, y en varios signos ninguna.
 - Cada sección necesita al menos un detalle concreto y cotidiano (una cena, una reunión familiar, cambiar de ruta al trabajo, un mensaje, una mascota, un curso, una caminata), nada de frases que sirvan para cualquiera.
 - Sigue la forma de escribir que te indico para cada sección; así cada signo suena distinto.
@@ -276,7 +284,13 @@ async function main(){
     try{
       let pendientes = pedidos, extra = '';
       for(let ronda = 0; ronda < 3 && pendientes.length && !sinTiempo(); ronda++){
-        const lista = await gemini(armarPrompt(cieloHoy, pendientes, extra));
+        // De 4 en 4: con los 12 juntos la IA tiende a escribir corto
+        const lista = [];
+        for(let i = 0; i < pendientes.length && !sinTiempo(); i += 4){
+          const grupo = pendientes.slice(i, i + 4);
+          try{ lista.push(...await gemini(armarPrompt(cieloHoy, grupo, extra))); }
+          catch(e){ console.log(`  Falló el grupo ${grupo.map(g => g.signo).join(', ')}: ${e.message}`); }
+        }
         const fallidos = [], notas = [];
         for(const p of pendientes){
           const h = lista.find(x => sinAcentos(x.signo) === sinAcentos(p.signo));
