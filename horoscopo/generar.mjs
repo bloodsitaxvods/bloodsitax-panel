@@ -186,6 +186,9 @@ function clave(){
   try{ return fs.readFileSync(path.join(DIR, 'clave.txt'), 'utf8').trim(); }catch{ return ''; }
 }
 const espera = ms => new Promise(r => setTimeout(r, ms));
+// Si en 8 minutos Gemini no terminó, se deja de insistir y sale el banco de frases
+const INICIO = Date.now(), LIMITE_MS = 8 * 60000;
+const sinTiempo = () => Date.now() - INICIO > LIMITE_MS;
 
 async function gemini(prompt){
   const key = clave(); if(!key) throw new Error('No hay GEMINI_API_KEY ni clave.txt');
@@ -197,6 +200,7 @@ async function gemini(prompt){
   for(const modelo of MODELOS){
     console.log(`  Pidiendo a Gemini (${modelo})...`);
     for(let intento = 0; intento < 3; intento++){
+      if(sinTiempo()) throw new Error('se acabó el tiempo (8 minutos)');
       try{
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
           method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key },
@@ -271,7 +275,7 @@ async function main(){
   if(!args.respaldo){
     try{
       let pendientes = pedidos, extra = '';
-      for(let ronda = 0; ronda < 3 && pendientes.length; ronda++){
+      for(let ronda = 0; ronda < 3 && pendientes.length && !sinTiempo(); ronda++){
         const lista = await gemini(armarPrompt(cieloHoy, pendientes, extra));
         const fallidos = [], notas = [];
         for(const p of pendientes){
