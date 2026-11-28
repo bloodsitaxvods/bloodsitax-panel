@@ -2012,11 +2012,19 @@ const DImg = {
     update(DIMG_ID, { ...arriba, datos:{ ...d, grupo:gid, grupos:{ ...(d.grupos || {}), [gid]:{ ...g, pares, sel } }, img:p.a, img2:p.b, titulo:g.titulo || '', ...extra } });
   },
   // Elegir otro par o cambiar de juego esconde la imagen: así nunca se ve antes de la cuenta
-  ocultarSiVisible(){ return estado[DIMG_ID] && estado[DIMG_ID].visible ? { visible:false } : {}; },
+  ocultarSiVisible(){ this.cerrarRonda(); return estado[DIMG_ID] && estado[DIMG_ID].visible ? { visible:false } : {}; },
+  // ...y da por terminada la ronda anterior: deja de contar respuestas y quita su cartel
+  cerrarRonda(){
+    const d = Dib.datos();
+    if(!d.ronda || (d.fase === 'fin' && d.oc)) return;
+    Dib.parar();
+    update(DIB_ID, { datos:{ ...d, fase:'fin', oc:ahora() } });
+  },
   cambiarGrupo(gid){
     if(gid === this.gid()) return;
     const d = this.datos(), g = this.grupo(gid), pares = this.pares(gid), p = pares[this.sel(gid)] || { a:'', b:'' };
-    update(DIMG_ID, { ...this.ocultarSiVisible(), datos:{ ...d, grupo:gid, img:p.a, img2:p.b, titulo:g.titulo || '', rev:false } });
+    const ocultar = this.ocultarSiVisible();
+    update(DIMG_ID, { ...ocultar, datos:{ ...d, grupo:gid, img:p.a, img2:p.b, titulo:g.titulo || '', rev:false } });
   },
   guardarTitulo(t){
     const d = this.datos(), gid = this.gid();
@@ -2255,7 +2263,7 @@ const Dib = {
   // Devuelve la hora del servidor en que empieza la cuenta, o 0 si se canceló.
   empezar(palabras, texto, conImagen){
     const d = this.datos();
-    if(!conImagen && d.fase === 'dibujando' && !confirm('Hay una ronda en curso. ¿Empezar una nueva?')) return 0;
+    // una ronda nueva da por terminada la anterior, sin preguntar
     if(!Chat.quiere){ Chat.conectar(); toast('Conectando el chat de Twitch'); }
     const ronda = idAleatorio(8), inicio = ahora() + 600;
     this.local = { ronda, palabras, texto: conImagen ? this.local.texto : texto, img:!!conImagen };
@@ -3091,7 +3099,9 @@ function accion(id, act){
       if(tipo === 'horoscopo' && !(estado[id].datos && estado[id].datos.h)) return toast('Primero elige un signo');
       return update(id, { visible:true });
     }
-    case 'ocultar': return update(id, { visible:false });
+    case 'ocultar':
+      if(id === DIMG_ID) DImg.cerrarRonda();     // esconder la imagen también termina su ronda
+      return update(id, { visible:false });
     case 'girar': return girar(id);
     case 'mezclar': return mezclarLista(id);
     case 'quitarGanador': return quitarGanador(id);
