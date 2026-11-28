@@ -195,15 +195,17 @@ async function gemini(prompt){
     required:['signo', ...SECCIONES] } };
   let ultimo;
   for(const modelo of MODELOS){
+    console.log(`  Pidiendo a Gemini (${modelo})...`);
     for(let intento = 0; intento < 3; intento++){
       try{
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
           method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key },
+          signal: AbortSignal.timeout(120000), // si en 2 minutos no responde, se pasa al siguiente intento
           body: JSON.stringify({ contents:[{ role:'user', parts:[{ text: prompt }] }],
             generationConfig:{ temperature:1.05, topP:.95, responseMimeType:'application/json', responseSchema: esquema } })
         });
         const txt = await r.text();
-        if(r.status === 429 || r.status >= 500){ ultimo = new Error(`${modelo}: HTTP ${r.status}`); await espera(15000 * (intento + 1)); continue; }
+        if(r.status === 429 || r.status >= 500){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 200)}`); console.log('  ' + ultimo.message); await espera(10000 * (intento + 1)); continue; }
         if(!r.ok){ ultimo = new Error(`${modelo}: HTTP ${r.status} ${txt.slice(0, 300)}`); break; }
         const j = JSON.parse(txt);
         const salida = j.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
@@ -211,7 +213,7 @@ async function gemini(prompt){
         if(!Array.isArray(lista)) throw new Error('respuesta sin lista');
         console.log(`  Gemini respondió (${modelo})`);
         return lista;
-      }catch(e){ ultimo = e; await espera(3000); }
+      }catch(e){ ultimo = e; console.log(`  ${modelo}: ${e.name === 'TimeoutError' ? 'no respondió en 2 minutos' : e.message}`); await espera(3000); }
     }
   }
   throw ultimo || new Error('Gemini no respondió');
